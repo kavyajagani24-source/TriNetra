@@ -1,0 +1,180 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+@import "mapbox-gl/dist/mapbox-gl.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * UrbanPulse design system — municipal GIS operations.
+ * Light operational chrome (white panels, light gray canvas, muted blue accent)
+ * sitting alongside a very dark navy GIS map surface.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-numeric);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-major: var(--major);
+  --color-major-soft: var(--major-soft);
+  --color-critical: var(--critical);
+  --color-critical-soft: var(--critical-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-cv: var(--cv);
+  --color-map: var(--map-base);
+  --color-map-deep: var(--map-deep);
+  --color-map-line: var(--map-line);
+  --color-map-panel: var(--map-panel);
+  --color-map-foreground: var(--map-foreground);
+  --color-map-muted: var(--map-muted);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --shadow-panel: 0 1px 2px oklch(0.25 0.03 260 / 0.06), 0 1px 1px oklch(0.25 0.03 260 / 0.04);
+  --shadow-float: 0 4px 16px oklch(0.2 0.03 260 / 0.18);
+}
+
+:root {
+  --radius: 0.4rem;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-numeric: "IBM Plex Mono", ui-monospace, monospace;
+
+  --background: oklch(0.973 0.002 250);
+  --foreground: oklch(0.26 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.26 0.02 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.26 0.02 260);
+  --primary: oklch(0.52 0.12 253);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.962 0.004 250);
+  --secondary-foreground: oklch(0.34 0.02 260);
+  --muted: oklch(0.965 0.003 250);
+  --muted-foreground: oklch(0.55 0.017 258);
+  --accent: oklch(0.955 0.012 250);
+  --accent-foreground: oklch(0.35 0.05 253);
+  --destructive: oklch(0.55 0.2 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.918 0.005 250);
+  --input: oklch(0.918 0.005 250);
+  --ring: oklch(0.62 0.1 253);
+
+  --ok: oklch(0.6 0.14 152);
+  --ok-soft: oklch(0.95 0.04 152);
+  --warn: oklch(0.75 0.15 82);
+  --warn-soft: oklch(0.96 0.05 88);
+  --major: oklch(0.66 0.17 47);
+  --major-soft: oklch(0.96 0.05 55);
+  --critical: oklch(0.55 0.21 26);
+  --critical-soft: oklch(0.955 0.03 26);
+  --info: oklch(0.55 0.12 250);
+  --info-soft: oklch(0.955 0.02 250);
+  --cv: oklch(0.66 0.29 330);
+
+  --map-base: oklch(0.24 0.022 258);
+  --map-deep: oklch(0.19 0.022 258);
+  --map-line: oklch(0.32 0.02 258);
+  --map-panel: oklch(0.22 0.022 258);
+  --map-foreground: oklch(0.9 0.008 250);
+  --map-muted: oklch(0.62 0.015 255);
+
+  --chart-1: oklch(0.55 0.12 250);
+  --chart-2: oklch(0.62 0.13 195);
+  --chart-3: oklch(0.66 0.17 47);
+  --chart-4: oklch(0.6 0.14 152);
+  --chart-5: oklch(0.55 0.18 300);
+}
+
+.dark {
+  --background: oklch(0.19 0.022 258);
+  --foreground: oklch(0.95 0.005 250);
+  --card: oklch(0.23 0.022 258);
+  --card-foreground: oklch(0.95 0.005 250);
+  --popover: oklch(0.23 0.022 258);
+  --popover-foreground: oklch(0.95 0.005 250);
+  --secondary: oklch(0.28 0.02 258);
+  --secondary-foreground: oklch(0.95 0.005 250);
+  --muted: oklch(0.28 0.02 258);
+  --muted-foreground: oklch(0.7 0.015 255);
+  --accent: oklch(0.3 0.03 255);
+  --accent-foreground: oklch(0.95 0.005 250);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.011em;
+  }
+}
+
+@utility panel {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-panel);
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+@utility label-xs {
+  font-size: 10px;
+  line-height: 14px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+}
+
+@utility scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}

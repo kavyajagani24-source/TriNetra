@@ -1,0 +1,58 @@
+import type { BackendBus } from "@/types/api";
+
+export const MOCK_BUSES: BackendBus[] = [
+  {
+    id: "b001-urban-bus-101",
+    bus_number: "BUS-101",
+    registration_number: "KA-01-FA-1001",
+    route_number: "Route 335E (Majestic - Whitefield)",
+    status: "ACTIVE",
+    created_at: "2026-09-01T08:00:00Z",
+    updated_at: "2026-09-07T12:00:00Z",
+  },
+  {
+    id: "b002-urban-bus-102",
+    bus_number: "BUS-102",
+    registration_number: "KA-01-FA-1002",
+    route_number: "Route 500D (Silk Board - Hebbal)",
+    status: "ACTIVE",
+    created_at: "2026-09-01T08:30:00Z",
+    updated_at: "2026-09-07T12:15:00Z",
+  },
+  {
+    id: "b003-urban-bus-103",
+    bus_number: "BUS-103",
+    registration_number: "KA-01-FA-1003",
+    route_number: "Route 201R (Banashankari - Domlur)",
+    status: "ACTIVE",
+    created_at: "2026-09-02T09:00:00Z",
+    updated_at: "2026-09-07T11:45:00Z",
+  },
+  {
+    id: "b004-urban-bus-104",
+    bus_number: "BUS-104",
+    registration_number: "KA-01-FA-1004",
+    route_number: "Route 365 (Kempegowda - Bannerghatta)",
+    status: "INACTIVE",
+    created_at: "2026-09-03T10:00:00Z",
+    updated_at: "2026-09-06T18:00:00Z",
+  },
+  {
+    id: "b005-urban-bus-105",
+    bus_number: "BUS-105",
+    registration_number: "KA-01-FA-1005",
+    route_number: "Route 401K (Kengeri - Yelahanka)",
+    status: "ACTIVE",
+    created_at: "2026-09-04T07:15:00Z",
+    updated_at: "2026-09-07T12:30:00Z",
+  },
+  {
+    id: "b006-urban-bus-106",
+    bus_number: "BUS-106",
+    registration_number: "KA-01-FA-1006",
+    route_number: "Route 290E (Shivajinagar - Yelahanka)",
+    status: "OFFLINE",
+    created_at: "2026-09-05T11:20:00Z",
+    updated_at: "2026-09-07T06:00:00Z",
+  },
+];

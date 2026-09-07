@@ -1,0 +1,52 @@
+[project]
+name = "urbaneye-ai-backend"
+version = "1.0.0"
+description = "UrbanEye AI — AI-Powered Mobile Urban Intelligence Platform Backend"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg[binary]>=3.1.0",
+    "alembic>=1.13.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "python-multipart>=0.0.9",
+    "opencv-python-headless>=4.10.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.27.0",
+    # ── Phase 2: AI / Computer Vision ─────────────────────────────────────────
+    "ultralytics>=8.3.0",      # YOLO v8/v11 + built-in ByteTrack tracker
+    "torch>=2.1.0",            # PyTorch (CPU by default; swap for GPU wheel in prod)
+    "torchvision>=0.16.0",     # Required by ultralytics
+    "numpy>=1.26.0",           # Numerical ops for frame / bbox processing
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["app/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+]

@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# uv
+.python-version
+
+# Environment Variables
+.env
+!.env.example
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.xml
+test_urbaneye.db
+
+# Logs
+*.log
+logs/
+
+# Storage uploads (keep directory with .gitkeep)
+storage/uploads/*
+!storage/uploads/.gitkeep
+storage/processed/*
+!storage/processed/.gitkeep
+storage/evidence/*
+!storage/evidence/.gitkeep
+storage/thumbnails/*
+!storage/thumbnails/.gitkeep
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Alembic auto-generated (keep versions/ but not compiled cache)
+alembic/versions/__pycache__/
+
+# Docker
+.dockerignore

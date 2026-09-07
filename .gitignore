@@ -1,0 +1,71 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Node and frontend builds
+node_modules/
+dist/
+dist-ssr/
+.output/
+.vinxi/
+.tanstack/
+.nitro/
+.wrangler/
+*.local
+
+# Databases and local logs
+*.db
+*.sqlite
+*.sqlite3
+logs/
+*.log
+
+# Uploaded/generated media and runtime storage
+backend/storage/uploads/
+backend/storage/processed/
+backend/storage/evidence/
+backend/storage/thumbnails/
+storage/uploads/
+storage/processed/
+storage/evidence/
+storage/thumbnails/
+
+# Large model weights
+*.pt
+*.onnx
+*.engine
+
+# Editor and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Frontend tooling
+frontend/.dev.vars
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*

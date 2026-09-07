@@ -1,0 +1,62 @@
+services:
+
+  # ── PostgreSQL Database ─────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: urbaneye_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: urbaneye
+      POSTGRES_USER: urbaneye
+      POSTGRES_PASSWORD: urbaneye
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U urbaneye -d urbaneye"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── FastAPI Backend ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: urbaneye_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: development
+      DEBUG: "true"
+      DATABASE_URL: postgresql+psycopg://urbaneye:urbaneye@postgres:5432/urbaneye
+      STORAGE_PATH: /app/storage
+      UPLOAD_PATH: /app/storage/uploads
+      PROCESSED_PATH: /app/storage/processed
+      EVIDENCE_PATH: /app/storage/evidence
+      THUMBNAIL_PATH: /app/storage/thumbnails
+      MAX_UPLOAD_SIZE_MB: "500"
+      ALLOWED_VIDEO_EXTENSIONS: ".mp4,.avi,.mov,.mkv"
+      CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount storage directories so files persist outside the container
+      - ./storage/uploads:/app/storage/uploads
+      - ./storage/processed:/app/storage/processed
+      - ./storage/evidence:/app/storage/evidence
+      - ./storage/thumbnails:/app/storage/thumbnails
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  postgres_data:
+    driver: local
