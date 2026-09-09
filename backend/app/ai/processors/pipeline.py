@@ -157,6 +157,13 @@ class UrbanAIPipeline:
         }
         congestion_scores: List[int] = []
 
+        # Reset Sixth Sense ObservationBuilder state for this video
+        if self.hazard_detector is not None and hasattr(self.hazard_detector, "reset_observation_builder"):
+            self.hazard_detector.reset_observation_builder(
+                bus_id=str(video_id),
+                run_id=str(job_id),
+            )
+
         with VideoProcessor(video_path) as reader:
             fps = reader.fps
             width = reader.width
@@ -262,6 +269,19 @@ class UrbanAIPipeline:
         else:
             avg_congestion = CongestionLevel.LOW
 
+        # Finalise Sixth Sense ObservationBuilder — get temporally-validated events
+        sixth_sense_events = []
+        if self.hazard_detector is not None and hasattr(self.hazard_detector, "finalise_observations"):
+            sixth_sense_events = self.hazard_detector.finalise_observations()
+            if sixth_sense_events:
+                logger.info(
+                    "Sixth Sense finalised: %d observations added to urban_events",
+                    len(sixth_sense_events),
+                )
+
+        # Merge Sixth Sense finalised events with event engine output
+        all_urban_events = self.event_engine.get_all_events() + sixth_sense_events
+
         return PipelineResult(
             video_id=video_id,
             job_id=job_id,
@@ -278,5 +298,5 @@ class UrbanAIPipeline:
             evidence_image_paths=evidence_paths,
             frame_results=frame_results,
             active_tracks_summary=self.tracker.get_track_summary(),
-            urban_events=self.event_engine.get_all_events(),
+            urban_events=all_urban_events,
         )

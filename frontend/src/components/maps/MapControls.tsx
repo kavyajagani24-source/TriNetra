@@ -22,8 +22,9 @@ const LAYER_ITEMS: { key: keyof LayerState; label: string; icon: typeof Layers }
   { key: "safety", label: "Safety", icon: PersonStanding },
   { key: "incidents", label: "Incidents", icon: AlertOctagon },
   { key: "buses", label: "Buses", icon: Bus },
+  { key: "routes", label: "Bus Routes", icon: RouteIcon },
   { key: "heatmap", label: "Heatmap", icon: Flame },
-  { key: "roadCondition", label: "Road Condition", icon: RouteIcon },
+  { key: "roadCondition", label: "Road Condition", icon: Layers },
 ];
 
 export function MapToolbar({

@@ -1,0 +1,123 @@
+# The Sixth Sense — Model Profiles
+# All thresholds are configurable and marked as HEURISTIC until calibrated on real data.
+
+urban_mvp:
+  # General object detector (vehicles, persons)
+  # Options tried: yolo11x, yolo11l, yolov8x, yolov8l, yolov8m
+  # Set to the model that best fits available VRAM (< 4GB recommended for RTX 5050 with road-damage model co-loaded)
+  general_detector: "yolo11x.pt"
+  general_detector_imgsz: 1280
+  general_detector_fp16: true
+
+  # Road damage model — yolo12s trained on RDD2022
+  # Classes: D00=longitudinal crack, D10=transverse crack, D20=alligator crack, D40=pothole, Repair
+  # Local weights path (skips HuggingFace download):
+  road_damage_detector: "yolo12s_RDD2022_best.pt"
+  road_damage_local_weights: "models/yolo12s_RDD2022_best.pt"
+  road_damage_imgsz: 640
+  road_damage_fp16: true
+
+  # Frame sampling — choose from: 1, 2, 3, 5, native
+  # 3 FPS is the Phase A benchmark default
+  target_fps: 3
+
+  # Per-class confidence thresholds (HEURISTIC — calibrate with real data)
+  conf_thresholds:
+    car:          0.45
+    bus:          0.45
+    truck:        0.45
+    motorcycle:   0.40
+    bicycle:      0.40
+    person:       0.40
+    road_damage:  0.35   # Road damage model classes
+    pothole:      0.35
+    crack:        0.30
+
+  # Quality gate thresholds
+  quality:
+    min_blur_score: 80.0        # Laplacian variance — below this, frame is blurry
+    min_brightness: 30.0        # Mean luminance — below this, too dark
+    max_brightness: 230.0       # Above this, overexposed
+    max_glare_ratio: 0.15       # Fraction of saturated pixels
+
+  # Temporal grouping for observations
+  observation:
+    max_gap_frames: 15          # Detections within this gap belong to same observation
+    min_spatial_overlap_iou: 0.3   # Minimum IoU to link detections across frames
+    min_detections: 3           # Minimum detections to confirm an observation (HEURISTIC)
+
+  # Track confirmation
+  tracking:
+    iou_threshold: 0.30
+    confirm_frames: 3           # Frames before track is "confirmed"
+    max_lost_frames: 10         # Frames to keep a lost track alive
+
+  # Severity thresholds for road damage (HEURISTIC — calibrate with real data)
+  severity:
+    relative_area_low:      0.0005   # below → LOW
+    relative_area_medium:   0.002    # below → MEDIUM
+    relative_area_high:     0.008    # below → HIGH
+    # above high threshold → CRITICAL
+    persistence_weight: 0.3          # Weight of persistence in severity calculation
+
+  # GPS
+  gps:
+    max_interpolation_gap_sec: 10.0  # Beyond this gap, GPS is UNAVAILABLE
+    base_uncertainty_m: 8.0          # Typical consumer GPS uncertainty
+    speed_uncertainty_factor: 0.5    # Added uncertainty per m/s of estimated speed
+
+  # Privacy
+  privacy:
+    blur_faces: true
+    blur_plates: true
+    face_region_top_fraction: 0.45   # Top 45% of person bbox treated as face
+
+  # Evidence
+  evidence:
+    save_evidence_frames: true
+    max_evidence_frames_per_obs: 3
+
+
+urban_full:
+  # Inherits urban_mvp settings; additions below will be activated in Phase E-F
+  extends: urban_mvp
+  target_fps: 5
+  general_detector: "yolo11x.pt"
+  general_detector_imgsz: 1280
+  # Future: add sign_detector, waterlogging_classifier, anpr_detector
+
+
+road_damage_sensitive:
+  # Lower confidence thresholds for road damage validation.
+  # Use this profile when the road damage model returns low-confidence detections
+  # e.g. on unfamiliar domains, older road surfaces, or low-light conditions.
+  # All thresholds are HEURISTIC — calibrate with ground-truth labels.
+  extends: urban_mvp
+  target_fps: 3
+
+  conf_thresholds:
+    car:          0.45
+    bus:          0.45
+    truck:        0.45
+    motorcycle:   0.40
+    bicycle:      0.40
+    person:       0.40
+    road_damage:  0.22   # Lowered: RDD2022 model on Indian roads returns 0.25-0.35
+    pothole:      0.22
+    crack:        0.20
+    D00:          0.22
+    D10:          0.22
+    D20:          0.22
+    D40:          0.22
+    Repair:       0.22
+
+  observation:
+    max_gap_frames: 20        # Wider gap — road cracks persist across many frames
+    min_spatial_overlap_iou: 0.20   # Lower IoU — road surface moves in frame as bus drives
+    min_detections: 2         # Require only 2 detections (road cracks are brief in dashcam)
+
+  quality:
+    min_blur_score: 60.0      # More permissive — moving vehicle introduces motion blur
+    min_brightness: 20.0
+    max_brightness: 235.0
+    max_glare_ratio: 0.20

@@ -21,7 +21,9 @@ class EventType(str, Enum):
     """Top-level category of a detected urban event."""
     # Road hazards
     POTHOLE             = "POTHOLE"
+    ROAD_CRACK          = "ROAD_CRACK"
     ROAD_DAMAGE         = "ROAD_DAMAGE"
+    ROAD_REPAIR         = "ROAD_REPAIR"
     WATERLOGGING        = "WATERLOGGING"
     ROAD_OBSTACLE       = "ROAD_OBSTACLE"
     DEBRIS              = "DEBRIS"
@@ -76,7 +78,9 @@ class EventCategory(str, Enum):
 
 EVENT_CATEGORY_MAP: Dict[EventType, EventCategory] = {
     EventType.POTHOLE:              EventCategory.HAZARD,
+    EventType.ROAD_CRACK:           EventCategory.HAZARD,
     EventType.ROAD_DAMAGE:          EventCategory.HAZARD,
+    EventType.ROAD_REPAIR:          EventCategory.HAZARD,
     EventType.WATERLOGGING:         EventCategory.HAZARD,
     EventType.ROAD_OBSTACLE:        EventCategory.HAZARD,
     EventType.DEBRIS:               EventCategory.HAZARD,

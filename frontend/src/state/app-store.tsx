@@ -45,6 +45,7 @@ export interface LayerState {
   buses: boolean;
   heatmap: boolean;
   roadCondition: boolean;
+  routes: boolean;
 }
 
 interface Store {
@@ -98,6 +99,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     buses: true,
     heatmap: false,
     roadCondition: true,
+    routes: true,
   });
 
   const toggleLayer = useCallback((k: keyof LayerState) => {

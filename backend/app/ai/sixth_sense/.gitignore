@@ -1,0 +1,36 @@
+# Python caches and environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+venv/
+env/
+.venv/
+
+# Outputs & Generated Artifacts
+outputs/
+command_center/live-runs/
+
+# Large Model Weights (exceeds 100MB GitHub limit)
+yolo11x.pt
+
+# Test Videos & Data
+*.mp4
+*.avi
+*.mov
+# (Note: data/demo_gps.csv is kept intentionally for tests, but we ignore raw videos)
+test_road.mp4
+test_road1.mp4
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary / OS files
+.DS_Store
+Thumbs.db
+test_github.txt

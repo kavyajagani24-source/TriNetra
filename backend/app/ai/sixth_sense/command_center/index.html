@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Sixth Sense — City Intelligence Command Center</title>
+  <link rel="stylesheet" href="css/styles.css?v=command-center-local-gis-v2" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">6</span>
+      <div>
+        <h1>THE SIXTH SENSE</h1>
+        <p class="subtitle">Continuous urban observation network · SIH 2026</p>
+      </div>
+    </div>
+    <div class="provenance" id="provenance-banner">
+      Loading pipeline artifacts…
+    </div>
+  </header>
+
+  <section class="stats-bar" id="stats-bar">
+    <div class="stat"><span class="stat-label">HIGH</span><span class="stat-value" id="stat-high">—</span></div>
+    <div class="stat"><span class="stat-label">OPEN TASKS</span><span class="stat-value" id="stat-open">—</span></div>
+    <div class="stat"><span class="stat-label">VERIFIED</span><span class="stat-value" id="stat-verified">—</span></div>
+    <div class="stat"><span class="stat-label">REOPENED</span><span class="stat-value" id="stat-reopened">—</span></div>
+  </section>
+
+  <section class="live-test-panel" aria-labelledby="live-test-title">
+    <div class="live-test-heading">
+      <div>
+        <p class="eyebrow">LOCAL GPU TEST LAB</p>
+        <h2 id="live-test-title">Test your road video</h2>
+        <p>Runs the existing vehicle, pedestrian, and RDD2022 road-damage models on this machine. Results are real model output, not demo data.</p>
+      </div>
+      <div class="live-test-device">RTX GPU · local only</div>
+    </div>
+    <div class="upload-controls">
+      <label class="file-picker" for="live-video-input">
+        <span>Choose video</span>
+        <input id="live-video-input" type="file" accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm" />
+      </label>
+      <span id="live-video-name" class="file-name">No video selected</span>
+      <button id="live-run-button" class="run-button" type="button" disabled>Run live detection</button>
+    </div>
+    <p class="live-test-note">Uses the bundled demo GPS only for a test map position; it does not claim your video’s real route. Max upload: 1 GB.</p>
+    <div id="live-run-status" class="live-run-status" aria-live="polite">Choose a road-facing video to begin.</div>
+    <div id="live-run-results" class="live-run-results" hidden></div>
+  </section>
+
+  <section class="traffic-panel" aria-labelledby="traffic-title">
+    <div class="traffic-heading">
+      <div>
+        <h2 id="traffic-title">Traffic Intelligence</h2>
+        <p>Relative traffic intensity · observation-level vehicle proxies</p>
+      </div>
+      <div class="traffic-limit">Speed: unavailable · Lane occupancy: unavailable</div>
+    </div>
+    <div id="traffic-content" class="traffic-content">Loading verified traffic artifacts…</div>
+  </section>
+
+  <main class="layout">
+    <aside class="panel queue-panel">
+      <h2>Action Queue</h2>
+      <p class="panel-hint">Prioritized from real pipeline output</p>
+      <ul id="action-queue" class="queue-list"></ul>
+    </aside>
+
+    <section class="panel map-panel">
+      <div id="map"></div>
+      <div class="map-legend">
+        <span><i class="dot green"></i> Verified</span>
+        <span><i class="dot red"></i> Reopened</span>
+        <span><i class="dot orange"></i> Road crack</span>
+        <span><i class="dot blue"></i> Other</span>
+      </div>
+    </section>
+
+    <aside class="panel detail-panel" id="detail-panel">
+      <div class="empty-state">
+        <h2>Select an issue on the map</h2>
+        <p>Every metric originates from <code>outputs/sih_demo/</code> pipeline artifacts.</p>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <span id="footer-mode">—</span>
+    <span id="footer-generated">—</span>
+  </footer>
+
+  <script src="js/app.js?v=command-center-local-gis-v2"></script>
+</body>
+</html>

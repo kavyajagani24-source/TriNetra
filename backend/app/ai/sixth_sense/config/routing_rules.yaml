@@ -1,0 +1,78 @@
+# Department routing rules — The Sixth Sense, Phase C
+# These mappings are NOT legally authoritative.
+# They represent suggested routing based on issue type.
+
+routing_rules:
+  version: routing_v1.0
+  rules:
+    - rule_id: ROAD_DEFECT
+      event_types:
+        - POTHOLE
+        - ROAD_CRACK
+        - ROAD_DAMAGE
+        - ROAD_REPAIR
+      department: PWD_ROAD_MAINTENANCE
+      department_display: PWD / Road Maintenance
+      routing_reason: >-
+        Road surface defect detected — routed to Public Works Department
+        (Road Maintenance) for inspection and repair.
+
+    - rule_id: WATERLOGGING
+      event_types:
+        - WATERLOGGING
+      department: SANITATION_DRAINAGE
+      department_display: Sanitation / Drainage
+      routing_reason: >-
+        Waterlogging detected — routed to Sanitation & Drainage department.
+
+    - rule_id: TRAFFIC_INFRASTRUCTURE
+      event_types:
+        - TRAFFIC_SIGN
+        - ZEBRA_CROSSING
+        - ROAD_DIVIDER
+      department: TRAFFIC_ENGINEERING
+      department_display: Traffic Engineering
+      routing_reason: >-
+        Traffic infrastructure issue — routed to Traffic Engineering department.
+
+    - rule_id: CONGESTION
+      event_types:
+        - CONGESTION
+        - VEHICLE
+      department: TRAFFIC_ICCC
+      department_display: Traffic / ICCC
+      routing_reason: >-
+        Traffic or congestion observation — routed to Traffic Management / ICCC.
+
+    - rule_id: SAFETY_INCIDENT
+      event_types:
+        - INCIDENT_CANDIDATE
+      department: TRAFFIC_POLICE
+      department_display: Traffic Police / Authorized Review
+      routing_reason: >-
+        Potential incident candidate — flagged for Traffic Police / authorized review.
+        NOTE: Requires human verification before action.
+
+    - rule_id: GARBAGE_DEBRIS
+      event_types:
+        - GARBAGE
+      department: SANITATION_SWACHH
+      department_display: Sanitation / Swachh Bharat
+      routing_reason: >-
+        Garbage or debris detected — routed to Sanitation (Swachh Bharat cell).
+
+    - rule_id: PEDESTRIAN_VRU
+      event_types:
+        - PEDESTRIAN
+        - CYCLIST
+      department: TRAFFIC_PEDESTRIAN_SAFETY
+      department_display: Traffic / Pedestrian Safety
+      routing_reason: >-
+        Pedestrian/VRU observation — routed to Pedestrian Safety cell for review.
+
+    - rule_id: DEFAULT
+      event_types: []
+      department: MUNICIPAL_GENERAL
+      department_display: Municipal Corporation — General
+      routing_reason: >-
+        Unclassified issue type — routed to Municipal Corporation for manual triage.

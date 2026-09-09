@@ -110,6 +110,7 @@ export function MapView({
       });
 
       // ── Bus Routes source ──────────────────────────────────────────────────
+      const isRoutesVisible = Boolean(layers.routes ?? showRoutes);
       const routeGeoJSON: GeoJSON.FeatureCollection = {
         type: "FeatureCollection",
         features: BUS_ROUTES.map((r) => ({
@@ -118,7 +119,7 @@ export function MapView({
             type: "LineString",
             coordinates: r.path.map((p) => [p.lng, p.lat]),
           },
-          properties: { id: r.id, name: r.name },
+          properties: { id: r.id, name: r.name, delayMin: r.delayMin, coverage: r.coverage },
         })),
       };
 
@@ -130,19 +131,45 @@ export function MapView({
         layout: {
           "line-join": "round",
           "line-cap": "round",
-          visibility: showRoutes ? "visible" : "none",
+          visibility: isRoutesVisible ? "visible" : "none",
         },
         paint: {
           "line-color": ["match", ["get", "id"],
-            "B1", "#6aa9e9",
-            "B2", "#7ed3c2",
-            "B3", "#c4a2e8",
-            "#e9c26a",
+            "B1", "#38bdf8",
+            "B2", "#34d399",
+            "B3", "#a78bfa",
+            "#fbbf24",
           ],
-          "line-width": 2.5,
-          "line-dasharray": [4, 3],
-          "line-opacity": 0.8,
+          "line-width": 3.5,
+          "line-dasharray": [3, 2],
+          "line-opacity": 0.9,
         },
+      });
+
+      map.on("click", "layer-bus-routes", (e) => {
+        if (!e.features || !e.features[0]) return;
+        const props = e.features[0].properties as any;
+        new mapboxgl.Popup({ closeButton: true, closeOnClick: true, offset: 10 })
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<div style="color:#0f172a; font-family:system-ui,sans-serif; font-size:12px; line-height:1.4; padding:2px 4px;">
+              <div style="font-weight:700; color:#0284c7; display:flex; align-items:center; gap:4px;">
+                <span>🚌</span><span>${props?.name || `Route ${props?.id}`}</span>
+              </div>
+              <div style="margin-top:4px; font-size:11px; color:#475569;">
+                <div>Delay: <strong>+${props?.delayMin ?? 0} mins</strong></div>
+                <div>Sensor Coverage: <strong>${props?.coverage ?? 90}%</strong></div>
+              </div>
+            </div>`
+          )
+          .addTo(map);
+      });
+
+      map.on("mouseenter", "layer-bus-routes", () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", "layer-bus-routes", () => {
+        map.getCanvas().style.cursor = "";
       });
 
       // ── Arterials (for visual richness) ───────────────────────────────────
@@ -365,7 +392,7 @@ export function MapView({
 
     setVis("layer-road-segments", layers.roadCondition);
     setVis("layer-heatmap", layers.heatmap);
-    setVis("layer-bus-routes", showRoutes);
+    setVis("layer-bus-routes", Boolean(layers.routes ?? showRoutes));
   }, [layers, showRoutes]);
 
   // ── Fallback if no token ─────────────────────────────────────────────────
