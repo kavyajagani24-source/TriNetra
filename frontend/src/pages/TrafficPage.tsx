@@ -14,6 +14,7 @@ import { MapView } from "@/components/maps/MapView";
 import { CONGESTION_TREND, CORRIDORS } from "@/data/mock";
 import { useStore } from "@/state/app-store";
 import { cn } from "@/lib/utils";
+import { TrafficAnalysisPanel } from "@/components/traffic/TrafficAnalysisPanel";
 
 const LEVEL_STYLE: Record<string, string> = {
   low: "bg-ok-soft text-ok",
@@ -52,6 +53,8 @@ export function TrafficPage() {
         </div>
 
         <div className="scroll-thin w-full shrink-0 space-y-2 overflow-y-auto border-l border-border bg-background p-2 xl:w-[400px]">
+          <TrafficAnalysisPanel />
+
           <Panel title="Traffic flow" description="Corridors by current flow state">
             <div className="grid grid-cols-4 gap-1.5">
               {(["low", "moderate", "high", "severe"] as const).map((l) => (

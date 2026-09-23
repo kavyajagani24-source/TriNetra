@@ -120,10 +120,29 @@ def create_application() -> FastAPI:
     # ── Routers ───────────────────────────────────────────────────────────────
     app.include_router(api_v1_router)
 
+    # ── The Sixth Sense AI Routers ────────────────────────────────────────────
+    try:
+        from app.api.sixth_sense_router import road_router, traffic_router, SIXTH_SENSE_ROOT
+        app.include_router(road_router)
+        app.include_router(traffic_router)
+        logger.info("The Sixth Sense AI routers mounted successfully.")
+    except Exception as exc:
+        logger.error("Failed to mount The Sixth Sense AI routers: %s", exc)
+
     # ── Static Files (Evidence & Processed Video Storage) ─────────────────────
     import os
     if os.path.exists(settings.STORAGE_PATH):
         app.mount("/storage", StaticFiles(directory=settings.STORAGE_PATH), name="storage")
+
+    # ── Sixth Sense Outputs (Annotated Videos & API Runs) ──────────────────────
+    try:
+        from app.api.sixth_sense_router import SIXTH_SENSE_ROOT
+        sixth_sense_outputs = SIXTH_SENSE_ROOT / "outputs"
+        if sixth_sense_outputs.exists():
+            app.mount("/outputs", StaticFiles(directory=str(sixth_sense_outputs)), name="outputs")
+            logger.info("Mounted /outputs from Sixth Sense directory: %s", sixth_sense_outputs)
+    except Exception as exc:
+        logger.warning("Could not mount Sixth Sense /outputs directory: %s", exc)
 
     # ── Exception Handlers ────────────────────────────────────────────────────
     _register_exception_handlers(app)

@@ -8,6 +8,8 @@ import { DEFECT_TYPES, ROAD_HEALTH_LEVELS } from "@/data/mock";
 import { SURVEYED_DISTANCE_KM } from "@/data/geo";
 import { useStore } from "@/state/app-store";
 
+import { RoadAnalysisPanel } from "@/components/roads/RoadAnalysisPanel";
+
 const ROAD_CATEGORIES = new Set([
   "pothole",
   "crack",
@@ -45,6 +47,8 @@ export function RoadsPage() {
         </div>
 
         <div className="scroll-thin w-full shrink-0 space-y-2 overflow-y-auto border-l border-border bg-background p-2 xl:w-[420px]">
+          <RoadAnalysisPanel />
+
           <div className="grid grid-cols-2 gap-2">
             <KpiCard label="Total distance surveyed" value={`${SURVEYED_DISTANCE_KM} km`} />
             <KpiCard label="Road defects" value={roadIssues.length} tone="warn" />

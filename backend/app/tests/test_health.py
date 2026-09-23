@@ -21,3 +21,15 @@ def test_health_response_structure(client):
     assert "success" in body
     assert "message" in body
     assert "data" in body
+
+
+def test_ai_health_check(client):
+    """GET /api/v1/health/ai should return AI engine status."""
+    response = client.get("/api/v1/health/ai")
+    assert response.status_code == 200
+    body = response.json()
+    assert "success" in body
+    assert "data" in body
+    assert body["data"]["engine"] == "The-Sixth-Sense-AI"
+    assert "models" in body["data"]
+

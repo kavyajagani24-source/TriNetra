@@ -100,6 +100,12 @@ class Settings(BaseSettings):
     NEAR_MISS_DISTANCE_PX: float = 85.0
     RASH_DRIVING_ANGLE_DEG: float = 40.0
 
+    # ── The Sixth Sense AI Engine ──────────────────────────────────────────────
+    # Absolute path to The-Sixth-Sense-AI repository root.
+    # Defaults to empty string — auto-discovery via sixth_sense_root_path property.
+    SIXTH_SENSE_ROOT: str = ""
+    SIXTH_SENSE_PROFILE: str = "urban_mvp"
+
 
     # ── Derived helpers ───────────────────────────────────────────────────────
     @property
@@ -140,6 +146,33 @@ class Settings(BaseSettings):
     @property
     def thumbnail_path_obj(self) -> Path:
         return Path(self.THUMBNAIL_PATH)
+
+    @property
+    def sixth_sense_root_path(self) -> Path:
+        """Resolved absolute path to The-Sixth-Sense-AI repository."""
+        if self.SIXTH_SENSE_ROOT:
+            p = Path(self.SIXTH_SENSE_ROOT).resolve()
+            if p.exists():
+                return p
+        # Auto-discover: sibling of urbaneye-ai on the filesystem
+        # parents[0]=core, [1]=app, [2]=backend, [3]=urbaneye-ai -> sibling The-Sixth-Sense-AI
+        candidate = Path(__file__).resolve().parents[3] / "The-Sixth-Sense-AI"
+        return candidate
+
+    @property
+    def sixth_sense_config_path(self) -> Path:
+        """Path to Sixth Sense profiles.yaml."""
+        return self.sixth_sense_root_path / "config" / "profiles.yaml"
+
+    @property
+    def sixth_sense_output_base(self) -> Path:
+        """Base directory for Sixth Sense API run outputs."""
+        return self.sixth_sense_root_path / "outputs" / "api_runs"
+
+    @property
+    def sixth_sense_models_path(self) -> Path:
+        """Path to Sixth Sense models directory."""
+        return self.sixth_sense_root_path / "models"
 
 
 @lru_cache(maxsize=1)

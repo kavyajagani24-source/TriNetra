@@ -188,3 +188,39 @@ def get_event_by_id(
         message="Event retrieved successfully.",
         data=UrbanEventResponse.model_validate(event),
     )
+
+
+# ── Delete Events ─────────────────────────────────────────────────────────────
+@router.delete(
+    "/events",
+    response_model=SuccessResponse[dict],
+    summary="Delete Urban Events",
+    description="Delete all detected urban events, or filter by video_id.",
+)
+def delete_events(
+    db: DatabaseDep,
+    video_id: Optional[uuid.UUID] = Query(default=None, description="Optional video UUID to delete events for"),
+) -> SuccessResponse[dict]:
+    from app.models.urban_event import UrbanEvent
+    from app.models.detection import Detection
+    from app.models.processing_job import ProcessingJob
+
+    query = db.query(UrbanEvent)
+    det_query = db.query(Detection)
+    job_query = db.query(ProcessingJob)
+
+    if video_id:
+        query = query.filter(UrbanEvent.video_id == video_id)
+        det_query = det_query.filter(Detection.video_id == video_id)
+        job_query = job_query.filter(ProcessingJob.video_id == video_id)
+
+    deleted_events = query.delete(synchronize_session=False)
+    det_query.delete(synchronize_session=False)
+    job_query.update({"events_detected": 0}, synchronize_session=False)
+    db.commit()
+
+    return SuccessResponse(
+        message=f"Successfully deleted {deleted_events} events.",
+        data={"deleted_count": deleted_events},
+    )
+

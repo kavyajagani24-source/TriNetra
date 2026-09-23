@@ -51,3 +51,11 @@ export async function getEventStatistics(
   const response = await apiClient.get<ApiResponse<BackendEventStatistics>>(url);
   return response.data.data;
 }
+
+export async function deleteEvents(videoId?: string): Promise<{ deleted_count: number }> {
+  const response = await apiClient.delete<ApiResponse<{ deleted_count: number }>>("/events", {
+    params: videoId ? { video_id: videoId } : undefined,
+  });
+  return response.data.data;
+}
+
