@@ -36,10 +36,17 @@ class EventType(str, Enum):
     DIVIDER             = "DIVIDER"
 
     # Pedestrian / VRU safety
-    PEDESTRIAN_RISK     = "PEDESTRIAN_RISK"
-    JAYWALKING          = "JAYWALKING"
-    UNSAFE_CROSSING     = "UNSAFE_CROSSING"
-    NEAR_MISS           = "NEAR_MISS"
+    PEDESTRIAN_RISK          = "PEDESTRIAN_RISK"
+    JAYWALKING               = "JAYWALKING"
+    UNSAFE_CROSSING          = "UNSAFE_CROSSING"
+    NEAR_MISS                = "NEAR_MISS"
+    ROAD_ENTRY               = "ROAD_ENTRY"
+    CROSSING_CANDIDATE       = "CROSSING_CANDIDATE"
+    SCHOOL_ZONE_PEDESTRIAN   = "SCHOOL_ZONE_PEDESTRIAN"
+    SCHOOL_ZONE_CROSSING     = "SCHOOL_ZONE_CROSSING"
+    VEHICLE_PROXIMITY        = "VEHICLE_PROXIMITY"
+    POTENTIAL_CONFLICT       = "POTENTIAL_CONFLICT"
+    STOPPED_PEDESTRIAN_ROAD  = "STOPPED_PEDESTRIAN_ROAD"
 
     # Vehicle behaviour
     RASH_DRIVING        = "RASH_DRIVING"
@@ -77,24 +84,31 @@ class EventCategory(str, Enum):
 # ── Category Mapping ───────────────────────────────────────────────────────────
 
 EVENT_CATEGORY_MAP: Dict[EventType, EventCategory] = {
-    EventType.POTHOLE:              EventCategory.HAZARD,
-    EventType.ROAD_CRACK:           EventCategory.HAZARD,
-    EventType.ROAD_DAMAGE:          EventCategory.HAZARD,
-    EventType.ROAD_REPAIR:          EventCategory.HAZARD,
-    EventType.WATERLOGGING:         EventCategory.HAZARD,
-    EventType.ROAD_OBSTACLE:        EventCategory.HAZARD,
-    EventType.DEBRIS:               EventCategory.HAZARD,
-    EventType.POTHOLE_CLUSTER:      EventCategory.HAZARD,
+    EventType.POTHOLE:                 EventCategory.HAZARD,
+    EventType.ROAD_CRACK:              EventCategory.HAZARD,
+    EventType.ROAD_DAMAGE:             EventCategory.HAZARD,
+    EventType.ROAD_REPAIR:             EventCategory.HAZARD,
+    EventType.WATERLOGGING:            EventCategory.HAZARD,
+    EventType.ROAD_OBSTACLE:           EventCategory.HAZARD,
+    EventType.DEBRIS:                  EventCategory.HAZARD,
+    EventType.POTHOLE_CLUSTER:         EventCategory.HAZARD,
 
-    EventType.TRAFFIC_SIGN:         EventCategory.INFRASTRUCTURE,
-    EventType.ZEBRA_CROSSING:       EventCategory.INFRASTRUCTURE,
-    EventType.ROAD_MARKING:         EventCategory.INFRASTRUCTURE,
-    EventType.DIVIDER:              EventCategory.INFRASTRUCTURE,
+    EventType.TRAFFIC_SIGN:            EventCategory.INFRASTRUCTURE,
+    EventType.ZEBRA_CROSSING:          EventCategory.INFRASTRUCTURE,
+    EventType.ROAD_MARKING:            EventCategory.INFRASTRUCTURE,
+    EventType.DIVIDER:                 EventCategory.INFRASTRUCTURE,
 
-    EventType.PEDESTRIAN_RISK:      EventCategory.SAFETY,
-    EventType.JAYWALKING:           EventCategory.SAFETY,
-    EventType.UNSAFE_CROSSING:      EventCategory.SAFETY,
-    EventType.NEAR_MISS:            EventCategory.SAFETY,
+    EventType.PEDESTRIAN_RISK:         EventCategory.SAFETY,
+    EventType.JAYWALKING:              EventCategory.SAFETY,
+    EventType.UNSAFE_CROSSING:         EventCategory.SAFETY,
+    EventType.NEAR_MISS:               EventCategory.SAFETY,
+    EventType.ROAD_ENTRY:              EventCategory.SAFETY,
+    EventType.CROSSING_CANDIDATE:      EventCategory.SAFETY,
+    EventType.SCHOOL_ZONE_PEDESTRIAN:  EventCategory.SAFETY,
+    EventType.SCHOOL_ZONE_CROSSING:    EventCategory.SAFETY,
+    EventType.VEHICLE_PROXIMITY:       EventCategory.SAFETY,
+    EventType.POTENTIAL_CONFLICT:      EventCategory.SAFETY,
+    EventType.STOPPED_PEDESTRIAN_ROAD: EventCategory.SAFETY,
 
     EventType.RASH_DRIVING:         EventCategory.BEHAVIOR,
     EventType.SUDDEN_BRAKING:       EventCategory.BEHAVIOR,

@@ -74,18 +74,18 @@ export function useEvents(filters?: UseEventsFilters) {
       let res;
       if (filters?.videoId) {
         res = await getVideoEvents(filters.videoId, {
-          category: filters.category,
-          event_type: filters.eventType,
-          severity: filters.severity,
-          page: filters.page,
+          ...(filters.category !== undefined && { category: filters.category }),
+          ...(filters.eventType !== undefined && { event_type: filters.eventType }),
+          ...(filters.severity !== undefined && { severity: filters.severity }),
+          ...(filters.page !== undefined && { page: filters.page }),
           limit: filters.limit || 50,
         });
       } else {
         res = await getEvents({
-          category: filters?.category,
-          event_type: filters?.eventType,
-          severity: filters?.severity,
-          page: filters?.page,
+          ...(filters?.category !== undefined && { category: filters.category }),
+          ...(filters?.eventType !== undefined && { event_type: filters.eventType }),
+          ...(filters?.severity !== undefined && { severity: filters.severity }),
+          ...(filters?.page !== undefined && { page: filters.page }),
           limit: filters?.limit || 50,
         });
       }

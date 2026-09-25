@@ -30,3 +30,4 @@ class DetectionResponse(BaseModel):
     bbox_y2: float
     center_x: float
     center_y: float
+    source_engine: Optional[str] = None

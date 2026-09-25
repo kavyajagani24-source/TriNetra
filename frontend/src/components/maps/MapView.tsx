@@ -147,8 +147,9 @@ export function MapView({
       });
 
       map.on("click", "layer-bus-routes", (e) => {
-        if (!e.features || !e.features[0]) return;
-        const props = e.features[0].properties as any;
+        const first = e.features?.[0];
+        if (!first) return;
+        const props = first.properties as any;
         new mapboxgl.Popup({ closeButton: true, closeOnClick: true, offset: 10 })
           .setLngLat(e.lngLat)
           .setHTML(

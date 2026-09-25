@@ -51,9 +51,9 @@ export function VideoManagement() {
 
     try {
       await uploadVideo(uploadFile, {
-        bus_id: uploadBusId || undefined,
-        latitude: uploadLat ? parseFloat(uploadLat) : undefined,
-        longitude: uploadLng ? parseFloat(uploadLng) : undefined,
+        ...(uploadBusId ? { bus_id: uploadBusId } : {}),
+        ...(uploadLat ? { latitude: parseFloat(uploadLat) } : {}),
+        ...(uploadLng ? { longitude: parseFloat(uploadLng) } : {}),
         onUploadProgress: (evt) => {
           if (evt.total) {
             setUploadProgress(Math.round((evt.loaded * 100) / evt.total));

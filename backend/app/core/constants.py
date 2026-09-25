@@ -28,13 +28,26 @@ class ProcessingStatus(str, Enum):
     """Status of an AI processing job (Phase 2 will execute these jobs)."""
     QUEUED = "QUEUED"
     PROCESSING = "PROCESSING"
+    ROAD_ANALYSIS = "ROAD_ANALYSIS"
+    TRAFFIC_ANALYSIS = "TRAFFIC_ANALYSIS"
+    SAFETY_ANALYSIS = "SAFETY_ANALYSIS"
+    NORMALIZING = "NORMALIZING"
+    PERSISTING = "PERSISTING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
 
 
 # Statuses that indicate an active (non-terminal) processing job
 ACTIVE_PROCESSING_STATUSES: frozenset[ProcessingStatus] = frozenset(
-    {ProcessingStatus.QUEUED, ProcessingStatus.PROCESSING}
+    {
+        ProcessingStatus.QUEUED,
+        ProcessingStatus.PROCESSING,
+        ProcessingStatus.ROAD_ANALYSIS,
+        ProcessingStatus.TRAFFIC_ANALYSIS,
+        ProcessingStatus.SAFETY_ANALYSIS,
+        ProcessingStatus.NORMALIZING,
+        ProcessingStatus.PERSISTING,
+    }
 )
 
 # Allowed video file extensions (also enforced from config)

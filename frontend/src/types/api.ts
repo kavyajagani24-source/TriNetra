@@ -91,6 +91,11 @@ export interface BackendVideo {
 export type ProcessingStatus =
   | "QUEUED"
   | "PROCESSING"
+  | "ROAD_ANALYSIS"
+  | "TRAFFIC_ANALYSIS"
+  | "SAFETY_ANALYSIS"
+  | "NORMALIZING"
+  | "PERSISTING"
   | "COMPLETED"
   | "FAILED"
   | "CANCELLED";
@@ -104,6 +109,10 @@ export interface BackendProcessingJob {
   total_frames: number;
   events_detected: number;
   error_message?: string | null;
+  engine_statuses?: Record<string, any> | null;
+  annotated_road_path?: string | null;
+  annotated_traffic_path?: string | null;
+  annotated_safety_path?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
   created_at: string;
@@ -120,6 +129,34 @@ export interface VideoProcessingStatusResponse {
   total_frames: number;
   events_detected: number;
   error_message?: string | null;
+  engine_statuses?: Record<string, any> | null;
+  annotated_road_path?: string | null;
+  annotated_traffic_path?: string | null;
+  annotated_safety_path?: string | null;
+}
+
+// ── Camera Safety Profile ───────────────────────────────────────────────────
+
+export interface CameraZone {
+  zone_id: string;
+  zone_type: string;
+  name: string;
+  polygon: [number, number][];
+  lat?: number | null;
+  lon?: number | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CameraSafetyProfile {
+  id: string;
+  camera_id: string;
+  resolution_width: number;
+  resolution_height: number;
+  zones: CameraZone[];
+  enabled: boolean;
+  extra_metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 }
 
 // ── Urban Event Entity (Phase 3) ──────────────────────────────────────────────

@@ -314,11 +314,13 @@ export function UrbanMap({
       // Event cluster zoom
       map.on("click", "layer-events-clusters", (e) => {
         const features = map.queryRenderedFeatures(e.point, { layers: ["layer-events-clusters"] });
-        const clusterId = features[0].properties?.cluster_id;
+        const first = features[0];
+        if (!first) return;
+        const clusterId = first.properties?.["cluster_id"];
         const source = map.getSource("urbaneye-events") as mapboxgl.GeoJSONSource;
         source.getClusterExpansionZoom(clusterId, (err, zoomLevel) => {
           if (err || zoomLevel == null) return;
-          const geom = features[0].geometry as GeoJSON.Point;
+          const geom = first.geometry as GeoJSON.Point;
           map.easeTo({ center: geom.coordinates as [number, number], zoom: zoomLevel + 1 });
         });
       });
@@ -326,11 +328,13 @@ export function UrbanMap({
       // Bus cluster zoom
       map.on("click", "layer-buses-clusters", (e) => {
         const features = map.queryRenderedFeatures(e.point, { layers: ["layer-buses-clusters"] });
-        const clusterId = features[0].properties?.cluster_id;
+        const first = features[0];
+        if (!first) return;
+        const clusterId = first.properties?.["cluster_id"];
         const source = map.getSource("urbaneye-buses") as mapboxgl.GeoJSONSource;
         source.getClusterExpansionZoom(clusterId, (err, zoomLevel) => {
           if (err || zoomLevel == null) return;
-          const geom = features[0].geometry as GeoJSON.Point;
+          const geom = first.geometry as GeoJSON.Point;
           map.easeTo({ center: geom.coordinates as [number, number], zoom: zoomLevel + 1 });
         });
       });
@@ -506,7 +510,7 @@ export function UrbanMap({
           <BusPopup
             bus={activeBusPopup}
             onClose={() => setActiveBusPopup(null)}
-            onViewFleet={onViewFleet}
+            {...(onViewFleet ? { onViewFleet } : {})}
           />
         </div>
       )}
@@ -517,7 +521,7 @@ export function UrbanMap({
           <EventPopup
             event={activeEventPopup}
             onClose={() => setActiveEventPopup(null)}
-            onInspectEvidence={onInspectEvidence}
+            {...(onInspectEvidence ? { onInspectEvidence } : {})}
           />
         </div>
       )}

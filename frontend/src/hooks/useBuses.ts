@@ -26,7 +26,10 @@ export function useBuses(statusFilter?: string) {
     }
 
     try {
-      const res = await getBuses({ status: statusFilter, limit: 100 });
+      const res = await getBuses({
+        ...(statusFilter !== undefined && { status: statusFilter }),
+        limit: 100,
+      });
       setBuses(res.data);
       setBackendOnline(true);
     } catch (err: unknown) {

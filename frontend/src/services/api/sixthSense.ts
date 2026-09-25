@@ -1,64 +1,6 @@
-/**
- * UrbanEye AI — The Sixth Sense AI Service
- * SIH 2026
- *
- * Client for interacting with The-Sixth-Sense-AI inference engine:
- * - Road Infrastructure AI (RDD2022 YOLOv12s)
- * - Traffic AI (YOLO11x + DIoU Tracker)
- */
 
-import { apiClient } from "./client";
-
-// ============================================================================
-// Types — Road Infrastructure AI
-// ============================================================================
-
-export interface RoadDetection {
-  type: string;
-  label: string;
-  confidence: number;
-  frame: number;
-  timestamp: number;
-  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-  bbox: [number, number, number, number];
-  relative_area: number;
-  detection_count: number;
-  evidence_ref?: string | null;
-}
-
-export interface RoadSummary {
-  potholes: number;
-  longitudinal_cracks: number;
-  transverse_cracks: number;
-  alligator_cracks: number;
-  repairs: number;
-  total_observations: number;
-  max_severity: string;
-  frames_processed: number;
-  video_duration_sec: number;
-}
-
-export interface RoadMetrics {
-  model: string;
-  model_checkpoint: string;
-  inference_device: string;
-  frames_sampled: number;
-  target_fps: number;
-  processing_time_sec: number;
-}
-
-export interface RoadAnalysisResponse {
-  run_id: string;
-  module: string;
-  source: string;
-  status: "completed" | "failed";
-  video: {
-    annotated_url?: string | null;
-  };
-  detections: RoadDetection[];
-  summary: RoadSummary;
-  metrics: RoadMetrics;
-  error?: string | null;
+metrics: RoadMetrics;
+error ?: string | null;
 }
 
 // ============================================================================

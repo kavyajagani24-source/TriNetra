@@ -39,9 +39,9 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
 
   const severityClasses = getSeverityClasses(event.severity);
   const evidencePath =
-    (event.extra_metadata?.evidence_path as string) ||
-    (event.extra_metadata?.snapshot_url as string) ||
-    (event.extra_metadata?.image_url as string) ||
+    (event.extra_metadata?.["evidence_path"] as string) ||
+    (event.extra_metadata?.["snapshot_url"] as string) ||
+    (event.extra_metadata?.["image_url"] as string) ||
     `evidence/ev_${event.job_id}_frame_${event.frame_number}.jpg`;
 
   const mediaUrl = evidencePath ? resolveMediaUrl(evidencePath) : null;

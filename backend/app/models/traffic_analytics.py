@@ -45,6 +45,9 @@ class TrafficAnalytics(TimestampMixin, Base):
     bus_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     truck_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     person_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    auto_rickshaw_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    bicycle_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    unique_vehicle_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     average_pixel_speed: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     traffic_density: Mapped[str] = mapped_column(String(20), nullable=False)

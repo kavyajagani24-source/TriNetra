@@ -62,8 +62,8 @@ export function useMapData() {
       if (visibleLayers.buses) {
         promises.push(
           getMapBuses({
-            bbox: bboxParam,
-            route_id: filters.routeId !== "all" ? filters.routeId : undefined,
+            ...(bboxParam !== undefined && { bbox: bboxParam }),
+            ...(filters.routeId !== "all" && { route_id: filters.routeId }),
           }).then(setBusesData)
         );
       }
@@ -72,11 +72,11 @@ export function useMapData() {
       if (visibleLayers.events) {
         promises.push(
           getMapEvents({
-            bbox: bboxParam,
-            category: filters.category !== "all" ? filters.category : undefined,
-            severity: filters.severity !== "all" ? filters.severity : undefined,
-            event_type: filters.eventType !== "all" ? filters.eventType : undefined,
-            bus_id: filters.busId !== "all" ? filters.busId : undefined,
+            ...(bboxParam !== undefined && { bbox: bboxParam }),
+            ...(filters.category !== "all" && { category: filters.category }),
+            ...(filters.severity !== "all" && { severity: filters.severity }),
+            ...(filters.eventType !== "all" && { event_type: filters.eventType }),
+            ...(filters.busId !== "all" && { bus_id: filters.busId }),
           }).then(setEventsData)
         );
       }

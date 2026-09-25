@@ -3,6 +3,7 @@
  *
  * Single source of truth for runtime frontend configuration.
  * Avoids direct un-typed calls to `import.meta.env` across components.
+ * Uses bracket notation to satisfy TS4111 (index signature access rule).
  */
 
 export interface AppEnv {
@@ -13,19 +14,21 @@ export interface AppEnv {
   demoModeDefault: boolean;
 }
 
+const _env = import.meta.env;
+
 export const env: AppEnv = {
   apiBaseUrl:
-    (import.meta.env.VITE_API_BASE_URL as string) ||
+    (_env["VITE_API_BASE_URL"] as string) ||
     "http://localhost:8000/api/v1",
   backendUrl:
-    (import.meta.env.VITE_BACKEND_URL as string) ||
+    (_env["VITE_BACKEND_URL"] as string) ||
     "http://localhost:8000",
   appName:
-    (import.meta.env.VITE_APP_NAME as string) || "UrbanEye AI",
+    (_env["VITE_APP_NAME"] as string) || "UrbanEye AI",
   appVersion:
-    (import.meta.env.VITE_APP_VERSION as string) || "2.0.0",
+    (_env["VITE_APP_VERSION"] as string) || "2.0.0",
   demoModeDefault:
-    (import.meta.env.VITE_DEMO_MODE as string) === "true",
+    (_env["VITE_DEMO_MODE"] as string) === "true",
 };
 
 export const API_BASE_URL = env.apiBaseUrl;

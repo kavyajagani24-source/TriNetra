@@ -4,6 +4,7 @@ UrbanEye AI — Database Models
 
 from app.models.base import Base, TimestampMixin
 from app.models.bus import Bus
+from app.models.camera_safety_profile import CameraSafetyProfile
 from app.models.detection import Detection
 from app.models.processing_job import ProcessingJob
 from app.models.tracked_object import TrackedObject
@@ -23,4 +24,5 @@ __all__ = [
     "TrajectoryPoint",
     "TrafficAnalytics",
     "UrbanEvent",
+    "CameraSafetyProfile",
 ]

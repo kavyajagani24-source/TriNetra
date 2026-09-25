@@ -27,6 +27,9 @@ class TrafficAnalyticsResponse(BaseModel):
     bus_count: int
     truck_count: int
     person_count: int
+    auto_rickshaw_count: Optional[int] = 0
+    bicycle_count: Optional[int] = 0
+    unique_vehicle_count: Optional[int] = 0
     average_pixel_speed: float
     traffic_density: str
     congestion_level: str
@@ -48,6 +51,10 @@ class JobResultsResponse(BaseModel):
     peak_active_vehicles: int
     avg_active_vehicles: float
     avg_pixel_speed: float
+    engine_statuses: Optional[dict] = None
+    annotated_road_path: Optional[str] = None
+    annotated_traffic_path: Optional[str] = None
+    annotated_safety_path: Optional[str] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None

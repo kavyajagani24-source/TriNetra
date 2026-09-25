@@ -106,6 +106,19 @@ class Settings(BaseSettings):
     SIXTH_SENSE_ROOT: str = ""
     SIXTH_SENSE_PROFILE: str = "urban_mvp"
 
+    # ── SIH2026 Module 3 Safety AI Engine ────────────────────────────────────
+    MODULE3_ROOT: str = ""
+    MODULE3_MODEL_PATH: str = ""
+    SAFETY_AI_ENABLED: bool = True
+    ROAD_AI_ENABLED: bool = True
+    TRAFFIC_AI_ENABLED: bool = True
+
+    # ── AI Hardware Device Settings ──────────────────────────────────────────
+    AI_DEVICE: str = "auto"
+    ROAD_DEVICE: str = "auto"
+    TRAFFIC_DEVICE: str = "auto"
+    SAFETY_DEVICE: str = "auto"
+
 
     # ── Derived helpers ───────────────────────────────────────────────────────
     @property
@@ -173,6 +186,34 @@ class Settings(BaseSettings):
     def sixth_sense_models_path(self) -> Path:
         """Path to Sixth Sense models directory."""
         return self.sixth_sense_root_path / "models"
+
+    @property
+    def module3_root_path(self) -> Path:
+        """Resolved absolute path to SIH2026--Module3 repository."""
+        if self.MODULE3_ROOT:
+            p = Path(self.MODULE3_ROOT).resolve()
+            if p.exists():
+                return p
+        parent = Path(__file__).resolve().parents[3]
+        for candidate_name in ["SIH2026--Module3", "SIH2026-Module3", "safety_module3"]:
+            candidate = parent / candidate_name
+            if candidate.exists():
+                return candidate
+        return parent / "SIH2026--Module3"
+
+    @property
+    def module3_model_path_obj(self) -> Path:
+        """Path to Module 3 YOLO checkpoint (models/best.pt)."""
+        if self.MODULE3_MODEL_PATH:
+            p = Path(self.MODULE3_MODEL_PATH).resolve()
+            if p.exists():
+                return p
+        return self.module3_root_path / "models" / "best.pt"
+
+    @property
+    def module3_configs_path(self) -> Path:
+        """Path to Module 3 configs directory."""
+        return self.module3_root_path / "configs"
 
 
 @lru_cache(maxsize=1)

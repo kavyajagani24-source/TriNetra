@@ -10,7 +10,9 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import JSON
 
 from app.core.constants import ProcessingStatus
 from app.models.base import Base, TimestampMixin
@@ -74,6 +76,16 @@ class ProcessingJob(TimestampMixin, Base):
     )
 
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Multi-engine execution provenance & annotated video artifacts
+    engine_statuses: Mapped[dict | None] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"),
+        nullable=True,
+        default=dict,
+    )
+    annotated_road_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    annotated_traffic_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    annotated_safety_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

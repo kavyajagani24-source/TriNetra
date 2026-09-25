@@ -23,6 +23,10 @@ class ProcessingJobResponse(BaseModel):
     total_frames: Optional[int] = None
     events_detected: int
     error_message: Optional[str] = None
+    engine_statuses: Optional[dict] = None
+    annotated_road_path: Optional[str] = None
+    annotated_traffic_path: Optional[str] = None
+    annotated_safety_path: Optional[str] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     created_at: datetime
@@ -53,3 +57,7 @@ class VideoProcessingStatus(BaseModel):
     total_frames: Optional[int] = 0
     events_detected: Optional[int] = 0
     error_message: Optional[str] = None
+    engine_statuses: Optional[dict] = None
+    annotated_road_path: Optional[str] = None
+    annotated_traffic_path: Optional[str] = None
+    annotated_safety_path: Optional[str] = None

@@ -47,6 +47,12 @@ class Detection(TimestampMixin, Base):
         index=True,
     )
 
+    source_engine: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
+    )
+
     class_id: Mapped[int] = mapped_column(
         Integer,
         nullable=False,

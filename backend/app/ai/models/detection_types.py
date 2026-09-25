@@ -156,3 +156,12 @@ class PipelineResult:
     # Phase 3 Aggregated Unique Urban Events
     urban_events: List[Any] = field(default_factory=list)
 
+    # Multi-engine integration outputs
+    road_result: Optional[Any] = None
+    traffic_result: Optional[Any] = None
+    safety_events: List[Any] = field(default_factory=list)
+    engine_statuses: Dict[str, Any] = field(default_factory=dict)
+    annotated_video_paths: Dict[str, Optional[str]] = field(default_factory=dict)
+    normalized_detections: List[Dict[str, Any]] = field(default_factory=list)
+    traffic_analytics_record: Optional[Dict[str, Any]] = None
+
