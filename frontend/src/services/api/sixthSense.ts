@@ -1,7 +1,23 @@
 
-metrics: RoadMetrics;
-error ?: string | null;
+import { apiClient } from "./client";
+
+export interface RoadMetrics {
+  model: string;
+  frames_sampled: number;
 }
+
+export interface RoadAnalysisResponse {
+  run_id: string;
+  module: string;
+  source: string;
+  status: "completed" | "failed";
+  video: {
+    annotated_url?: string | null;
+  };
+  metrics: RoadMetrics;
+  error?: string | null;
+}
+
 
 // ============================================================================
 // Types — Traffic AI

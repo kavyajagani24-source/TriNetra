@@ -1,12 +1,4 @@
-/**
- * UrbanEye AI — Mapbox GL JS Map View (replaces SVG canvas)
- *
- * Drop-in replacement for the old SVG-based MapView.
- * Renders real Mapbox dark vector tiles with overlaid
- * bus markers, issue markers, road segments, and bus routes.
- */
-
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cn } from "@/lib/utils";
@@ -15,7 +7,6 @@ import { CONDITION_COLORS, BUS_ROUTES, ROAD_SEGMENTS, CITY_CENTER, ARTERIALS } f
 import type { Bus, Issue } from "@/types";
 import type { LayerState } from "@/state/app-store";
 
-// Mumbai city center
 const MUMBAI_LNG = CITY_CENTER.lng;
 const MUMBAI_LAT = CITY_CENTER.lat;
 
@@ -49,7 +40,7 @@ export function MapView({
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const busMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
 
-  // ── Map Init ────────────────────────────────────────────────────────────────
+  // ── 1. Map Init ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -248,7 +239,7 @@ export function MapView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Issue Markers ───────────────────────────────────────────────────────────
+  // ── 2. Issue Markers (Filtered with Red / Orange / Yellow Severity Colors) ──
 
   useEffect(() => {
     const map = mapRef.current;
@@ -258,32 +249,16 @@ export function MapView({
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
 
-      const CATEGORY_COLOR: Record<string, string> = {
-        pothole: "#e08b3c",
-        crack: "#c9c53f",
-        missing_divider: "#e08b3c",
-        zebra_crossing: "#c9c53f",
-        traffic_sign: "#5b9bd5",
-        waterlogging: "#4aa8d8",
-        debris: "#c9c53f",
-        traffic: "#5b9bd5",
-        safety: "#dc4b3e",
-        incident: "#dc4b3e",
-        behavior: "#f97316",
-        infrastructure: "#8b5cf6",
-        hazard: "#f59e0b",
+      // Red / Orange / Yellow severity color rule
+      const getSeverityColor = (iss: Issue) => {
+        if (iss.priority === "P1" || iss.severity === "critical") return "#ef4444"; // 🔴 Red = Critical / highest priority
+        if (iss.priority === "P2" || iss.severity === "major") return "#f97316";   // 🟠 Orange = High priority
+        return "#eab308";                                                           // 🟡 Yellow = Medium priority
       };
 
-      const shouldShow = (iss: Issue) => {
-        if (iss.category === "traffic") return layers.traffic;
-        if (iss.category === "safety") return layers.safety;
-        if (iss.category === "incident") return layers.incidents;
-        return layers.defects;
-      };
-
-      issues.filter(shouldShow).forEach((iss) => {
+      issues.forEach((iss) => {
         const isSelected = iss.id === selectedIssueId;
-        const color = CATEGORY_COLOR[iss.category] || "#f97316";
+        const color = getSeverityColor(iss);
 
         const el = document.createElement("div");
         el.style.cssText = `
@@ -296,7 +271,7 @@ export function MapView({
           box-shadow: 0 0 ${isSelected ? "12px" : "4px"} ${color}80;
           transition: all 0.15s ease;
         `;
-        el.title = `${iss.category} — ${iss.road}`;
+        el.title = `${iss.title} (${iss.priority}) — ${iss.road}`;
 
         if (onSelectIssue) {
           el.addEventListener("click", (e) => {
@@ -317,9 +292,9 @@ export function MapView({
     } else {
       map.once("load", waitForLoad);
     }
-  }, [issues, layers, selectedIssueId, onSelectIssue]);
+  }, [issues, selectedIssueId, onSelectIssue]);
 
-  // ── Bus Markers ─────────────────────────────────────────────────────────────
+  // ── 3. Bus Markers ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     const map = mapRef.current;
@@ -330,10 +305,12 @@ export function MapView({
     }
 
     const waitForLoad = () => {
-      // remove old markers not in buses list
       const newIds = new Set(buses.map((b) => b.id));
       busMarkersRef.current.forEach((m, id) => {
-        if (!newIds.has(id)) { m.remove(); busMarkersRef.current.delete(id); }
+        if (!newIds.has(id)) {
+          m.remove();
+          busMarkersRef.current.delete(id);
+        }
       });
 
       buses.forEach((bus) => {
@@ -366,7 +343,6 @@ export function MapView({
             .addTo(map);
           busMarkersRef.current.set(bus.id, marker);
         } else {
-          // update position & style
           busMarkersRef.current.get(bus.id)?.setLngLat([bus.position.lng, bus.position.lat]);
           el.style.background = isOnline ? "#60a5fa" : "#6b7280";
           el.style.border = isSelected ? "3px solid #fff" : "2px solid rgba(0,0,0,0.7)";
@@ -379,7 +355,7 @@ export function MapView({
     else map.once("load", waitForLoad);
   }, [buses, layers.buses, selectedBusId, onSelectBus]);
 
-  // ── Layer Visibility Updates ─────────────────────────────────────────────
+  // ── 4. Layer Visibility Updates ─────────────────────────────────────────────
 
   useEffect(() => {
     const map = mapRef.current;
@@ -418,27 +394,26 @@ export function MapView({
   );
 }
 
-// ── MapLegend (unchanged API) ────────────────────────────────────────────────
+// ── MapLegend ────────────────────────────────────────────────────────────────
 
 export function MapLegend({ className }: { className?: string }) {
   const items = [
-    { c: CONDITION_COLORS[0], l: "Good" },
-    { c: CONDITION_COLORS[1], l: "Fair" },
-    { c: CONDITION_COLORS[2], l: "Poor" },
-    { c: CONDITION_COLORS[3], l: "Critical" },
+    { c: "#ef4444", l: "🔴 Red — Critical / P1" },
+    { c: "#f97316", l: "🟠 Orange — High / P2" },
+    { c: "#eab308", l: "🟡 Yellow — Medium / P3" },
   ];
   return (
     <div
       className={cn(
-        "rounded border border-white/10 bg-black/80 px-2.5 py-2 shadow-lg backdrop-blur",
+        "rounded-md border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur text-slate-800",
         className,
       )}
     >
-      <p className="mb-1.5 text-[10px] uppercase tracking-widest text-slate-400">Road condition</p>
-      <ul className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <p className="mb-1.5 text-[10px] uppercase font-bold tracking-wider text-slate-500">Marker Priority Severity</p>
+      <ul className="flex flex-col gap-1">
         {items.map((i) => (
-          <li key={i.l} className="flex items-center gap-1.5 text-[11px] text-slate-200">
-            <span className="h-0.5 w-4 rounded" style={{ background: i.c }} />
+          <li key={i.l} className="flex items-center gap-2 text-[11px] font-medium text-slate-700">
+            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: i.c }} />
             {i.l}
           </li>
         ))}
