@@ -1,226 +1,266 @@
-import { useEffect, useRef } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cn } from "@/lib/utils";
 import { MAPBOX_ACCESS_TOKEN } from "@/config/map";
-import { CONDITION_COLORS, BUS_ROUTES, ROAD_SEGMENTS, CITY_CENTER, ARTERIALS } from "@/data/geo";
+import {
+  DEMO_REGION,
+  ANDHERI_ROADS,
+  ANDHERI_ISSUES,
+  ANDHERI_BUSES,
+  CONDITION_CONFIG,
+  SEVERITY_MARKER_COLOR,
+  type AndheriRoad,
+  type AndheriIssue,
+} from "@/data/andheri";
 import type { Bus, Issue } from "@/types";
 import type { LayerState } from "@/state/app-store";
 
-const MUMBAI_LNG = CITY_CENTER.lng;
-const MUMBAI_LAT = CITY_CENTER.lat;
+// ── Types ──────────────────────────────────────────────────────────────────────
 
-export interface MapViewProps {
-  issues: Issue[];
-  buses?: Bus[];
-  layers: LayerState;
-  selectedIssueId?: string | null;
-  onSelectIssue?: (id: string) => void;
-  selectedBusId?: string | null;
-  onSelectBus?: (id: string) => void;
-  showRoutes?: boolean;
-  className?: string;
-  overlay?: React.ReactNode;
+export interface AndheriMapProps {
+  showFleet?: boolean | undefined;
+  selectedRoadId?: string | null | undefined;
+  selectedIssueId?: string | null | undefined;
+  onSelectRoad?: ((road: AndheriRoad) => void) | undefined;
+  onSelectIssue?: ((issue: AndheriIssue) => void) | undefined;
+  className?: string | undefined;
 }
 
-export function MapView({
-  issues,
-  buses = [],
-  layers,
+// Helper: safely read from Mapbox index-signature properties
+function prop<T = unknown>(p: Record<string, unknown>, key: string, fallback: T): T {
+  const v = p[key];
+  return v !== undefined && v !== null ? (v as T) : fallback;
+}
+
+// ── AndheriIntelligenceMap ────────────────────────────────────────────────────
+
+export function AndheriIntelligenceMap({
+  showFleet = false,
+  selectedRoadId,
   selectedIssueId,
+  onSelectRoad,
   onSelectIssue,
-  selectedBusId,
-  onSelectBus,
-  showRoutes = false,
   className,
-  overlay,
-}: MapViewProps) {
+}: AndheriMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const issueMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const busMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const hoveredRoadRef = useRef<string | null>(null);
 
-  // ── 1. Map Init ──────────────────────────────────────────────────────────────
-
+  // ── Map Initialization ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    if (!MAPBOX_ACCESS_TOKEN || !MAPBOX_ACCESS_TOKEN.startsWith("pk.")) return;
+    if (!MAPBOX_ACCESS_TOKEN?.startsWith("pk.")) return;
 
     mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
       style: "mapbox://styles/mapbox/dark-v11",
-      center: [MUMBAI_LNG, MUMBAI_LAT],
-      zoom: 11.5,
-      attributionControl: true,
+      center: [DEMO_REGION.center.lng, DEMO_REGION.center.lat],
+      zoom: DEMO_REGION.zoom,
+      minZoom: 11,
+      maxZoom: 18,
+      attributionControl: false,
     });
 
     mapRef.current = map;
 
+    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+
     map.on("load", () => {
-      // ── Road Condition Segments source ─────────────────────────────────────
-      const segmentGeoJSON: GeoJSON.FeatureCollection = {
+      // ── 1. Road Condition Intelligence Layer ──────────────────────────────
+      const roadConditionGeoJSON: GeoJSON.FeatureCollection = {
         type: "FeatureCollection",
-        features: ROAD_SEGMENTS.map((seg) => ({
-          type: "Feature",
+        features: ANDHERI_ROADS.map((road) => ({
+          type: "Feature" as const,
+          id: road.id,
           geometry: {
-            type: "LineString",
-            coordinates: seg.path.map((p) => [p.lng, p.lat]),
+            type: "LineString" as const,
+            coordinates: road.coordinates,
           },
           properties: {
-            id: seg.id,
-            condition: seg.condition,
-            road: seg.road,
+            id: road.id,
+            name: road.name,
+            type: road.type,
+            condition: road.condition,
+            conditionScore: road.conditionScore,
+            issueCount: road.issueCount,
+            observationCount: road.observationCount,
+            lastObserved: road.lastObserved,
+            priority: road.priority ?? "",
+            status: road.status,
+            surveyedBuses: road.surveyedBuses,
+            color: CONDITION_CONFIG[road.condition].color,
+            lineWidth: CONDITION_CONFIG[road.condition].lineWidth,
           },
         })),
       };
 
-      map.addSource("road-segments", { type: "geojson", data: segmentGeoJSON });
+      map.addSource("andheri-roads", {
+        type: "geojson",
+        data: roadConditionGeoJSON,
+        generateId: false,
+      });
+
+      // Road glow / halo
       map.addLayer({
-        id: "layer-road-segments",
+        id: "layer-road-glow",
         type: "line",
-        source: "road-segments",
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-          visibility: layers.roadCondition ? "visible" : "none",
-        },
+        source: "andheri-roads",
+        layout: { "line-join": "round", "line-cap": "round" },
         paint: {
-          "line-color": [
-            "step",
-            ["get", "condition"],
-            CONDITION_COLORS[0],   // 0 → green
-            1, CONDITION_COLORS[1], // 1 → yellow
-            2, CONDITION_COLORS[2], // 2 → orange
-            3, CONDITION_COLORS[3], // 3 → red
+          "line-color": ["get", "color"],
+          "line-width": [
+            "interpolate", ["linear"], ["zoom"],
+            12, ["*", ["get", "lineWidth"], 1.8],
+            16, ["*", ["get", "lineWidth"], 2.5],
           ],
-          "line-width": 4,
-          "line-opacity": 0.9,
+          "line-opacity": 0.18,
+          "line-blur": 4,
         },
       });
 
-      // ── Bus Routes source ──────────────────────────────────────────────────
-      const isRoutesVisible = Boolean(layers.routes ?? showRoutes);
-      const routeGeoJSON: GeoJSON.FeatureCollection = {
+      // Main intelligence line
+      map.addLayer({
+        id: "layer-road-condition",
+        type: "line",
+        source: "andheri-roads",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": [
+            "interpolate", ["linear"], ["zoom"],
+            12, ["get", "lineWidth"],
+            16, ["*", ["get", "lineWidth"], 1.5],
+          ],
+          "line-opacity": 0.92,
+        },
+      });
+
+      // Selected road highlight layer
+      map.addLayer({
+        id: "layer-road-selected",
+        type: "line",
+        source: "andheri-roads",
+        layout: { "line-join": "round", "line-cap": "round" },
+        filter: ["==", ["get", "id"], "____none____"],
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": [
+            "interpolate", ["linear"], ["zoom"],
+            12, 10,
+            16, 14,
+          ],
+          "line-opacity": 0.5,
+          "line-blur": 3,
+        },
+      });
+
+      // ── 2. Survey Observation Dots (zoom >= 14) ───────────────────────────
+      const obsDots: GeoJSON.FeatureCollection = {
         type: "FeatureCollection",
-        features: BUS_ROUTES.map((r) => ({
-          type: "Feature",
-          geometry: {
-            type: "LineString",
-            coordinates: r.path.map((p) => [p.lng, p.lat]),
-          },
-          properties: { id: r.id, name: r.name, delayMin: r.delayMin, coverage: r.coverage },
-        })),
+        features: ANDHERI_ROADS.flatMap((road) =>
+          road.coordinates.map((coord) => ({
+            type: "Feature" as const,
+            geometry: { type: "Point" as const, coordinates: coord },
+            properties: {
+              condition: road.condition,
+              color: CONDITION_CONFIG[road.condition].color,
+            },
+          }))
+        ),
       };
 
-      map.addSource("bus-routes", { type: "geojson", data: routeGeoJSON });
+      map.addSource("andheri-obs-dots", { type: "geojson", data: obsDots });
       map.addLayer({
-        id: "layer-bus-routes",
-        type: "line",
-        source: "bus-routes",
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-          visibility: isRoutesVisible ? "visible" : "none",
-        },
+        id: "layer-obs-dots",
+        type: "circle",
+        source: "andheri-obs-dots",
+        minzoom: 14,
         paint: {
-          "line-color": ["match", ["get", "id"],
-            "B1", "#38bdf8",
-            "B2", "#34d399",
-            "B3", "#a78bfa",
-            "#fbbf24",
-          ],
-          "line-width": 3.5,
-          "line-dasharray": [3, 2],
-          "line-opacity": 0.9,
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 2.5, 17, 4],
+          "circle-color": ["get", "color"],
+          "circle-opacity": 0.8,
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#0d1117",
         },
       });
 
-      map.on("click", "layer-bus-routes", (e) => {
-        const first = e.features?.[0];
-        if (!first) return;
-        const props = first.properties as any;
-        new mapboxgl.Popup({ closeButton: true, closeOnClick: true, offset: 10 })
+      // ── 3. Hover + Click interactions ─────────────────────────────────────
+      const popup = new mapboxgl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 12,
+        className: "trinetra-road-popup",
+      });
+
+      map.on("mousemove", "layer-road-condition", (e) => {
+        map.getCanvas().style.cursor = "pointer";
+        const feature = e.features?.[0];
+        if (!feature) return;
+        const p = feature.properties as Record<string, unknown>;
+        // Use bracket notation for index-signature properties (TS4111)
+        const roadId = String(p["id"] ?? "");
+        if (roadId === hoveredRoadRef.current) return;
+        hoveredRoadRef.current = roadId;
+
+        const cond = String(p["condition"] ?? "");
+        const condCfg = CONDITION_CONFIG[cond as keyof typeof CONDITION_CONFIG];
+        const condColor = condCfg?.color ?? "#fff";
+        const roadName = String(p["name"] ?? "Unknown Road");
+        const condScore = Number(p["conditionScore"] ?? 0);
+        const issueCount = Number(p["issueCount"] ?? 0);
+        const obsCount = Number(p["observationCount"] ?? 0);
+        const lastObs = String(p["lastObserved"] ?? "—");
+
+        popup
           .setLngLat(e.lngLat)
-          .setHTML(
-            `<div style="color:#0f172a; font-family:system-ui,sans-serif; font-size:12px; line-height:1.4; padding:2px 4px;">
-              <div style="font-weight:700; color:#0284c7; display:flex; align-items:center; gap:4px;">
-                <span>🚌</span><span>${props?.name || `Route ${props?.id}`}</span>
+          .setHTML(`
+            <div style="
+              font-family: 'Inter', system-ui, sans-serif;
+              font-size: 12px;
+              color: #f8fafc;
+              padding: 4px 2px;
+              min-width: 180px;
+            ">
+              <div style="font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; margin-bottom:4px;">
+                Road Segment
               </div>
-              <div style="margin-top:4px; font-size:11px; color:#475569;">
-                <div>Delay: <strong>+${props?.delayMin ?? 0} mins</strong></div>
-                <div>Sensor Coverage: <strong>${props?.coverage ?? 90}%</strong></div>
+              <div style="font-weight:700; font-size:13px; color:#f1f5f9; margin-bottom:6px; line-height:1.3;">
+                ${roadName}
               </div>
-            </div>`
-          )
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${condColor};"></span>
+                <span style="color:${condColor}; font-weight:600; text-transform:uppercase; font-size:11px;">${cond}</span>
+                <span style="color:#64748b; font-size:11px;">· Score ${condScore}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:6px; font-size:11px; color:#94a3b8;">
+                <div><span style="color:#e2e8f0;">${issueCount}</span> Issues</div>
+                <div><span style="color:#e2e8f0;">${obsCount}</span> Obs.</div>
+                <div style="grid-column:1/-1;">Last seen: <span style="color:#cbd5e1;">${lastObs}</span></div>
+              </div>
+            </div>
+          `)
           .addTo(map);
       });
 
-      map.on("mouseenter", "layer-bus-routes", () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "layer-bus-routes", () => {
+      map.on("mouseleave", "layer-road-condition", () => {
         map.getCanvas().style.cursor = "";
+        hoveredRoadRef.current = null;
+        popup.remove();
       });
 
-      // ── Arterials (for visual richness) ───────────────────────────────────
-      const arterialGeoJSON: GeoJSON.FeatureCollection = {
-        type: "FeatureCollection",
-        features: ARTERIALS.map((a) => ({
-          type: "Feature",
-          geometry: {
-            type: "LineString",
-            coordinates: a.path.map((p) => [p.lng, p.lat]),
-          },
-          properties: { road: a.road },
-        })),
-      };
-
-      map.addSource("arterials", { type: "geojson", data: arterialGeoJSON });
-      map.addLayer({
-        id: "layer-arterials",
-        type: "line",
-        source: "arterials",
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: {
-          "line-color": "#2a3a4a",
-          "line-width": 3,
-          "line-opacity": 0.6,
-        },
-      });
-
-      // ── Heatmap (issues density) ───────────────────────────────────────────
-      const issuePoints: GeoJSON.FeatureCollection = {
-        type: "FeatureCollection",
-        features: issues.map((iss) => ({
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [iss.position.lng, iss.position.lat] },
-          properties: { id: iss.id, category: iss.category },
-        })),
-      };
-
-      map.addSource("issue-heatmap", { type: "geojson", data: issuePoints });
-      map.addLayer({
-        id: "layer-heatmap",
-        type: "heatmap",
-        source: "issue-heatmap",
-        layout: { visibility: layers.heatmap ? "visible" : "none" },
-        paint: {
-          "heatmap-weight": 0.8,
-          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 1, 14, 3],
-          "heatmap-color": [
-            "interpolate", ["linear"], ["heatmap-density"],
-            0, "rgba(33,102,172,0)",
-            0.2, "rgb(103,169,207)",
-            0.4, "rgb(209,229,240)",
-            0.6, "rgb(253,219,199)",
-            0.8, "rgb(239,138,98)",
-            1, "rgb(178,24,43)",
-          ],
-          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 4, 14, 25],
-          "heatmap-opacity": 0.75,
-        },
+      map.on("click", "layer-road-condition", (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+        const p = feature.properties as Record<string, unknown>;
+        const roadId = String(p["id"] ?? "");
+        const road = ANDHERI_ROADS.find((r) => r.id === roadId);
+        if (road && onSelectRoad) onSelectRoad(road);
       });
     });
 
@@ -229,8 +269,8 @@ export function MapView({
 
     return () => {
       ro.disconnect();
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
+      issueMarkersRef.current.forEach((m) => m.remove());
+      issueMarkersRef.current = [];
       busMarkersRef.current.forEach((m) => m.remove());
       busMarkersRef.current.clear();
       map.remove();
@@ -239,145 +279,112 @@ export function MapView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── 2. Issue Markers (Filtered with Red / Orange / Yellow Severity Colors) ──
-
+  // ── Issue Markers ─────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    const waitForLoad = () => {
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
+    const renderMarkers = () => {
+      issueMarkersRef.current.forEach((m) => m.remove());
+      issueMarkersRef.current = [];
 
-      // Red / Orange / Yellow severity color rule
-      const getSeverityColor = (iss: Issue) => {
-        if (iss.priority === "P1" || iss.severity === "critical") return "#ef4444"; // 🔴 Red = Critical / highest priority
-        if (iss.priority === "P2" || iss.severity === "major") return "#f97316";   // 🟠 Orange = High priority
-        return "#eab308";                                                           // 🟡 Yellow = Medium priority
-      };
-
-      issues.forEach((iss) => {
-        const isSelected = iss.id === selectedIssueId;
-        const color = getSeverityColor(iss);
+      ANDHERI_ISSUES.forEach((issue) => {
+        const isSelected = issue.id === selectedIssueId;
+        const color = SEVERITY_MARKER_COLOR[issue.severity];
+        const size = isSelected ? 24 : 16;
+        const isP1 = issue.priority === "P1";
 
         const el = document.createElement("div");
         el.style.cssText = `
-          width: ${isSelected ? "22px" : "16px"};
-          height: ${isSelected ? "22px" : "16px"};
-          border-radius: 50%;
+          width: ${size}px;
+          height: ${size}px;
+          border-radius: ${isP1 ? "3px" : "50%"};
           background: ${color};
-          border: ${isSelected ? "3px solid #fff" : "2px solid rgba(0,0,0,0.6)"};
+          border: ${isSelected ? "3px solid #ffffff" : isP1 ? "2px solid rgba(255,255,255,0.5)" : "2px solid rgba(0,0,0,0.7)"};
           cursor: pointer;
-          box-shadow: 0 0 ${isSelected ? "12px" : "4px"} ${color}80;
+          box-shadow: 0 0 ${isSelected ? "16px 4px" : isP1 ? "8px 2px" : "4px 1px"} ${color}90;
           transition: all 0.15s ease;
+          display: flex; align-items: center; justify-content: center;
+          color: white; font-size: 9px; font-weight: 700;
         `;
-        el.title = `${iss.title} (${iss.priority}) — ${iss.road}`;
+        if (isP1) el.textContent = "P1";
+        el.title = `${issue.title} (${issue.priority})`;
 
-        if (onSelectIssue) {
-          el.addEventListener("click", (e) => {
-            e.stopPropagation();
-            onSelectIssue(iss.id);
-          });
-        }
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (onSelectIssue) onSelectIssue(issue);
+        });
 
         const marker = new mapboxgl.Marker({ element: el, anchor: "center" })
-          .setLngLat([iss.position.lng, iss.position.lat])
+          .setLngLat([issue.position.lng, issue.position.lat])
           .addTo(map);
-        markersRef.current.push(marker);
+        issueMarkersRef.current.push(marker);
       });
     };
 
-    if (map.isStyleLoaded()) {
-      waitForLoad();
-    } else {
-      map.once("load", waitForLoad);
-    }
-  }, [issues, selectedIssueId, onSelectIssue]);
+    if (map.isStyleLoaded()) renderMarkers();
+    else map.once("load", renderMarkers);
+  }, [selectedIssueId, onSelectIssue]);
 
-  // ── 3. Bus Markers ──────────────────────────────────────────────────────────
-
+  // ── Fleet Bus Markers ─────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !layers.buses) {
-      busMarkersRef.current.forEach((m) => m.remove());
-      busMarkersRef.current.clear();
-      return;
-    }
+    if (!map) return;
 
-    const waitForLoad = () => {
-      const newIds = new Set(buses.map((b) => b.id));
+    const renderBuses = () => {
+      if (!showFleet) {
+        busMarkersRef.current.forEach((m) => m.remove());
+        busMarkersRef.current.clear();
+        return;
+      }
+
+      const activeIds = new Set(ANDHERI_BUSES.map((b) => b.id));
       busMarkersRef.current.forEach((m, id) => {
-        if (!newIds.has(id)) {
-          m.remove();
-          busMarkersRef.current.delete(id);
-        }
+        if (!activeIds.has(id)) { m.remove(); busMarkersRef.current.delete(id); }
       });
 
-      buses.forEach((bus) => {
-        const isSelected = bus.id === selectedBusId;
-        const isOnline = bus.status !== "offline";
+      ANDHERI_BUSES.forEach((bus) => {
+        const isOnline = bus.status === "active";
+        const bgColor = isOnline ? "#3b82f6" : "#475569";
 
-        let el = busMarkersRef.current.get(bus.id)?.getElement();
-
-        if (!el) {
-          el = document.createElement("div");
+        if (!busMarkersRef.current.has(bus.id)) {
+          const el = document.createElement("div");
           el.style.cssText = `
-            width: 18px; height: 18px;
-            border-radius: 4px;
-            background: ${isOnline ? "#60a5fa" : "#6b7280"};
-            border: ${isSelected ? "3px solid #fff" : "2px solid rgba(0,0,0,0.7)"};
+            width: 14px; height: 14px;
+            border-radius: 3px;
+            background: ${bgColor};
+            border: 1.5px solid rgba(255,255,255,0.6);
             cursor: pointer;
-            box-shadow: 0 0 ${isSelected ? "10px" : "4px"} #60a5fa80;
-            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 6px ${bgColor}80;
           `;
-
-          if (onSelectBus) {
-            el.addEventListener("click", (e) => {
-              e.stopPropagation();
-              onSelectBus(bus.id);
-            });
-          }
+          el.title = `${bus.id} · ${bus.routeName} · ${bus.speedKph} km/h`;
 
           const marker = new mapboxgl.Marker({ element: el, anchor: "center" })
             .setLngLat([bus.position.lng, bus.position.lat])
             .addTo(map);
           busMarkersRef.current.set(bus.id, marker);
-        } else {
-          busMarkersRef.current.get(bus.id)?.setLngLat([bus.position.lng, bus.position.lat]);
-          el.style.background = isOnline ? "#60a5fa" : "#6b7280";
-          el.style.border = isSelected ? "3px solid #fff" : "2px solid rgba(0,0,0,0.7)";
-          el.style.boxShadow = `0 0 ${isSelected ? "10px" : "4px"} #60a5fa80`;
         }
       });
     };
 
-    if (map.isStyleLoaded()) waitForLoad();
-    else map.once("load", waitForLoad);
-  }, [buses, layers.buses, selectedBusId, onSelectBus]);
+    if (map.isStyleLoaded()) renderBuses();
+    else map.once("load", renderBuses);
+  }, [showFleet]);
 
-  // ── 4. Layer Visibility Updates ─────────────────────────────────────────────
-
+  // ── Selected Road filter update ────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
+    const filterId = selectedRoadId ?? "____none____";
+    if (map.getLayer("layer-road-selected")) {
+      map.setFilter("layer-road-selected", ["==", ["get", "id"], filterId]);
+    }
+  }, [selectedRoadId]);
 
-    const setVis = (id: string, vis: boolean) => {
-      if (map.getLayer(id)) {
-        map.setLayoutProperty(id, "visibility", vis ? "visible" : "none");
-      }
-    };
-
-    setVis("layer-road-segments", layers.roadCondition);
-    setVis("layer-heatmap", layers.heatmap);
-    setVis("layer-bus-routes", Boolean(layers.routes ?? showRoutes));
-  }, [layers, showRoutes]);
-
-  // ── Fallback if no token ─────────────────────────────────────────────────
-
-  if (!MAPBOX_ACCESS_TOKEN || !MAPBOX_ACCESS_TOKEN.startsWith("pk.")) {
+  if (!MAPBOX_ACCESS_TOKEN?.startsWith("pk.")) {
     return (
-      <div className={cn("relative flex items-center justify-center rounded-lg bg-[#0d1117] text-sm text-slate-400", className)}>
-        <p>Set <code className="text-slate-200">VITE_MAPBOX_ACCESS_TOKEN</code> in <code className="text-slate-200">.env</code> to load map tiles.</p>
+      <div className={cn("flex items-center justify-center bg-[#0d1117] text-slate-400 text-sm rounded-lg", className)}>
+        <p>Set <code className="text-slate-200">VITE_MAPBOX_ACCESS_TOKEN</code> in <code className="text-slate-200">.env</code></p>
       </div>
     );
   }
@@ -385,38 +392,62 @@ export function MapView({
   return (
     <div className={cn("relative isolate overflow-hidden", className)}>
       <div ref={containerRef} className="h-full w-full" />
-      {overlay && (
-        <div className="pointer-events-none absolute inset-0 z-10">
-          {overlay}
-        </div>
-      )}
     </div>
   );
 }
 
-// ── MapLegend ────────────────────────────────────────────────────────────────
+// ── MapView (backward-compat shim) ────────────────────────────────────────────
+// Kept so other pages that import MapView still compile without changes.
 
-export function MapLegend({ className }: { className?: string }) {
-  const items = [
-    { c: "#ef4444", l: "🔴 Red — Critical / P1" },
-    { c: "#f97316", l: "🟠 Orange — High / P2" },
-    { c: "#eab308", l: "🟡 Yellow — Medium / P3" },
-  ];
+export interface MapViewProps {
+  issues?: Issue[] | undefined;
+  buses?: Bus[] | undefined;
+  layers?: LayerState | undefined;
+  selectedIssueId?: string | null | undefined;
+  onSelectIssue?: ((id: string) => void) | undefined;
+  selectedBusId?: string | null | undefined;
+  onSelectBus?: ((id: string) => void) | undefined;
+  showRoutes?: boolean | undefined;
+  className?: string | undefined;
+  overlay?: React.ReactNode | undefined;
+}
+
+export function MapView({ className }: MapViewProps) {
+  return <AndheriIntelligenceMap className={className} />;
+}
+
+// ── MapLegend ─────────────────────────────────────────────────────────────────
+
+export function MapLegend({ className }: { className?: string | undefined }) {
   return (
-    <div
-      className={cn(
-        "rounded-md border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur text-slate-800",
-        className,
-      )}
-    >
-      <p className="mb-1.5 text-[10px] uppercase font-bold tracking-wider text-slate-500">Marker Priority Severity</p>
-      <ul className="flex flex-col gap-1">
-        {items.map((i) => (
-          <li key={i.l} className="flex items-center gap-2 text-[11px] font-medium text-slate-700">
-            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: i.c }} />
-            {i.l}
+    <div className={cn("rounded-xl border border-white/10 bg-[#0d1117]/95 backdrop-blur px-4 py-3 shadow-2xl", className)}>
+      <p className="mb-2 text-[9px] uppercase font-bold tracking-widest text-slate-500">
+        Road Condition
+      </p>
+      <ul className="flex flex-col gap-1.5 mb-3">
+        {(Object.entries(CONDITION_CONFIG) as [string, { color: string; label: string }][]).map(([, cfg]) => (
+          <li key={cfg.label} className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
+            <span className="h-2.5 w-5 rounded-full shrink-0" style={{ background: cfg.color }} />
+            {cfg.label}
           </li>
         ))}
+      </ul>
+      <p className="mb-2 text-[9px] uppercase font-bold tracking-widest text-slate-500 border-t border-white/10 pt-2.5">
+        Issues
+      </p>
+      <ul className="flex flex-col gap-1.5">
+        <li className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
+          <span className="h-3 w-3 rounded-sm bg-red-500 shrink-0 flex items-center justify-center text-[7px] font-bold text-white">P1</span>
+          Priority Issue
+        </li>
+        <li className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
+          <span className="h-2.5 w-2.5 rounded-full bg-orange-500 shrink-0" />
+          Major Issue
+        </li>
+        <li className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#3b82f6] shrink-0" />
+          Fleet Bus
+        </li>
       </ul>
     </div>
   );
