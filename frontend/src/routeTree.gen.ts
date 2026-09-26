@@ -10,8 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ActionCenterRouteImport } from './routes/action-center'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as BusesRouteImport } from './routes/buses'
+import { Route as CityMapRouteImport } from './routes/city-map'
 import { Route as ExecutiveRouteImport } from './routes/executive'
 import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as IncidentsRouteImport } from './routes/incidents'
@@ -31,6 +33,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActionCenterRoute = ActionCenterRouteImport.update({
+  id: '/action-center',
+  path: '/action-center',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AnalyticsRoute = AnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -39,6 +46,11 @@ const AnalyticsRoute = AnalyticsRouteImport.update({
 const BusesRoute = BusesRouteImport.update({
   id: '/buses',
   path: '/buses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CityMapRoute = CityMapRouteImport.update({
+  id: '/city-map',
+  path: '/city-map',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExecutiveRoute = ExecutiveRouteImport.update({
@@ -109,8 +121,10 @@ const WorkQueueRoute = WorkQueueRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/action-center': typeof ActionCenterRoute
   '/analytics': typeof AnalyticsRoute
   '/buses': typeof BusesRoute
+  '/city-map': typeof CityMapRoute
   '/executive': typeof ExecutiveRoute
   '/fleet': typeof FleetRoute
   '/incidents': typeof IncidentsRoute
@@ -127,8 +141,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/action-center': typeof ActionCenterRoute
   '/analytics': typeof AnalyticsRoute
   '/buses': typeof BusesRoute
+  '/city-map': typeof CityMapRoute
   '/executive': typeof ExecutiveRoute
   '/fleet': typeof FleetRoute
   '/incidents': typeof IncidentsRoute
@@ -146,8 +162,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/action-center': typeof ActionCenterRoute
   '/analytics': typeof AnalyticsRoute
   '/buses': typeof BusesRoute
+  '/city-map': typeof CityMapRoute
   '/executive': typeof ExecutiveRoute
   '/fleet': typeof FleetRoute
   '/incidents': typeof IncidentsRoute
@@ -166,8 +184,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/action-center'
     | '/analytics'
     | '/buses'
+    | '/city-map'
     | '/executive'
     | '/fleet'
     | '/incidents'
@@ -184,8 +204,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/action-center'
     | '/analytics'
     | '/buses'
+    | '/city-map'
     | '/executive'
     | '/fleet'
     | '/incidents'
@@ -202,8 +224,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/action-center'
     | '/analytics'
     | '/buses'
+    | '/city-map'
     | '/executive'
     | '/fleet'
     | '/incidents'
@@ -221,8 +245,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ActionCenterRoute: typeof ActionCenterRoute
   AnalyticsRoute: typeof AnalyticsRoute
   BusesRoute: typeof BusesRoute
+  CityMapRoute: typeof CityMapRoute
   ExecutiveRoute: typeof ExecutiveRoute
   FleetRoute: typeof FleetRoute
   IncidentsRoute: typeof IncidentsRoute
@@ -247,6 +273,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/action-center': {
+      id: '/action-center'
+      path: '/action-center'
+      fullPath: '/action-center'
+      preLoaderRoute: typeof ActionCenterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/analytics': {
       id: '/analytics'
       path: '/analytics'
@@ -259,6 +292,13 @@ declare module '@tanstack/react-router' {
       path: '/buses'
       fullPath: '/buses'
       preLoaderRoute: typeof BusesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/city-map': {
+      id: '/city-map'
+      path: '/city-map'
+      fullPath: '/city-map'
+      preLoaderRoute: typeof CityMapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/executive': {
@@ -357,8 +397,10 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActionCenterRoute: ActionCenterRoute,
   AnalyticsRoute: AnalyticsRoute,
   BusesRoute: BusesRoute,
+  CityMapRoute: CityMapRoute,
   ExecutiveRoute: ExecutiveRoute,
   FleetRoute: FleetRoute,
   IncidentsRoute: IncidentsRoute,

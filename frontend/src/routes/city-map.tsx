@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CityMapPage } from "@/pages/CityMapPage";
 
-export const Route = createFileRoute("/map")({
+export const Route = createFileRoute("/city-map")({
   head: () => ({
     meta: [
       { title: "TRINETRA — City Map Intelligence" },

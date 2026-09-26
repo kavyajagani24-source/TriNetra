@@ -1,6 +1,5 @@
-
 /**
- * UrbanEye AI — The Sixth Sense AI Service
+ * UrbanEye AI - The Sixth Sense AI Service
  * SIH 2026
  *
  * Client for interacting with The-Sixth-Sense-AI inference engine:
@@ -11,7 +10,7 @@
 import { apiClient } from "./client";
 
 // ============================================================================
-// Types — Road Infrastructure AI
+// Types - Road Infrastructure AI
 // ============================================================================
 
 export interface RoadDetection {
@@ -63,7 +62,7 @@ export interface RoadAnalysisResponse {
 }
 
 // ============================================================================
-// Types — Traffic AI
+// Types - Traffic AI
 // ============================================================================
 
 export interface VehicleTrack {
@@ -205,4 +204,3 @@ export async function getAiHealth(): Promise<AiHealthResponse> {
   const response = await apiClient.get<{ success: boolean; data: AiHealthResponse }>("/health/ai");
   return response.data.data;
 }
-

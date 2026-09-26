@@ -4,10 +4,8 @@ import { SettingsPage } from "@/pages/SettingsPage";
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Settings & Privacy | UrbanPulse" },
-      { name: "description", content: "Role access, detection thresholds, privacy processing and demo controls." },
-      { property: "og:title", content: "Settings & Privacy | UrbanPulse" },
-      { property: "og:description", content: "Role access, detection thresholds, privacy processing and demo controls." },
+      { title: "TRINETRA — Command System Settings" },
+      { name: "description", content: "Administrative settings, FastAPI backend diagnostics, detection classes, and notifications." },
     ],
   }),
   component: SettingsPage,

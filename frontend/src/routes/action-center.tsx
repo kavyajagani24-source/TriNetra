@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ActionCenterPage } from "@/pages/ActionCenterPage";
 
-export const Route = createFileRoute("/work-queue")({
+export const Route = createFileRoute("/action-center")({
   head: () => ({
     meta: [
       { title: "TRINETRA — Action Center" },
