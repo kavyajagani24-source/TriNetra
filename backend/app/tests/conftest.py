@@ -35,6 +35,7 @@ from app.models.tracked_object import TrackedObject  # noqa: F401
 from app.models.traffic_analytics import TrafficAnalytics  # noqa: F401
 from app.models.trajectory import TrajectoryPoint  # noqa: F401
 from app.models.urban_event import UrbanEvent  # noqa: F401
+from app.models.safety_run import SafetyRun, SafetyEvent  # noqa: F401
 
 # SQLite in-memory DB — no PostgreSQL required for tests.
 # StaticPool ensures all connections reuse the same DBAPI connection so
@@ -86,8 +87,9 @@ def client(db_session):
 
     app.dependency_overrides[get_db] = override_get_db
 
-    # Mock DB health check and bind background tasks SessionLocal to SQLite
+    # Mock DB health check, mock create_all during lifespan, and bind background tasks SessionLocal to SQLite
     with patch("app.main.check_database_connection", return_value=True), \
+         patch("app.models.base.Base.metadata.create_all"), \
          patch("app.services.ai_processing_service.SessionLocal", TestSessionLocal):
         with TestClient(app, raise_server_exceptions=True) as test_client:
             yield test_client

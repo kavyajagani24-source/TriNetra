@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from app.ai.processors.pipeline import UrbanAIPipeline
+if TYPE_CHECKING:
+    from app.ai.processors.pipeline import UrbanAIPipeline
 from app.core.config import get_settings
 from app.core.constants import ProcessingStatus, VideoStatus
 from app.core.database import SessionLocal
@@ -28,6 +29,7 @@ from app.repositories.event_repository import EventRepository
 from app.repositories.processing_repository import ProcessingRepository
 from app.repositories.tracking_repository import TrackingRepository
 from app.repositories.video_repository import VideoRepository
+from app.services.safety_ingestion_service import SafetyIngestionService
 from app.utils.timestamps import utcnow
 
 logger = logging.getLogger(__name__)
@@ -132,7 +134,11 @@ class AIProcessingService:
                     )
                     logger.info("Loaded custom camera safety profile for %s", camera_id_str)
 
-            pipeline = self.pipeline or UrbanAIPipeline(settings=self.settings)
+            if self.pipeline:
+                pipeline = self.pipeline
+            else:
+                from app.ai.processors.pipeline import UrbanAIPipeline
+                pipeline = UrbanAIPipeline(settings=self.settings)
 
             # Execute multi-engine pipeline
             result = pipeline.run(
@@ -259,7 +265,42 @@ class AIProcessingService:
             if events_to_insert:
                 event_repo.create_bulk_events(events_to_insert)
 
-            # 5. Update Job Engine Statuses and Annotated Paths
+            # 5. Persist Module 3 Safety Events (JSONL + run_summary.json)
+            if self.settings.SAFETY_AI_ENABLED:
+                try:
+                    import os
+                    from pathlib import Path as _Path
+
+                    # safety_out_dir mirrors pipeline.py Stage 3 path convention
+                    out_dir_root = _Path(self.settings.PROCESSED_PATH) / str(job.id)
+                    safety_out_dir = out_dir_root / "safety"
+
+                    if safety_out_dir.exists():
+                        safety_svc = SafetyIngestionService(db)
+                        safety_svc.ingest(
+                            output_dir=safety_out_dir,
+                            job_id=job.id,
+                            video_id=video.id,
+                            video_fps=float(
+                                result.engine_statuses.get("safety", {}).get("fps", 30.0)
+                            ),
+                            annotated_video_path=result.annotated_video_paths.get("safety")
+                            or job.annotated_safety_path,
+                        )
+                    else:
+                        logger.warning(
+                            "Safety output dir not found: %s — skipping JSONL ingestion.",
+                            safety_out_dir,
+                        )
+                except Exception as safety_exc:
+                    logger.warning(
+                        "SafetyIngestion failed for job=%s (non-fatal): %s",
+                        job_id,
+                        safety_exc,
+                        exc_info=True,
+                    )
+
+            # 6. Update Job Engine Statuses and Annotated Paths
             job.engine_statuses = result.engine_statuses
             job.annotated_road_path = result.annotated_video_paths.get("road")
             job.annotated_traffic_path = result.annotated_video_paths.get("traffic")

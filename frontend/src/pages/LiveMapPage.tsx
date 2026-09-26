@@ -154,7 +154,7 @@ export function LiveMapPage() {
               <Panel
                 title={`${selectedBus.id} · Route ${selectedBus.route}`}
                 description={selectedBus.operator}
-                action={
+                actions={
                   <button
                     onClick={() => selectBus(null)}
                     className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"

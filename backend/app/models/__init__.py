@@ -7,6 +7,7 @@ from app.models.bus import Bus
 from app.models.camera_safety_profile import CameraSafetyProfile
 from app.models.detection import Detection
 from app.models.processing_job import ProcessingJob
+from app.models.safety_run import SafetyEvent, SafetyRun
 from app.models.tracked_object import TrackedObject
 from app.models.traffic_analytics import TrafficAnalytics
 from app.models.trajectory import TrajectoryPoint
@@ -25,4 +26,6 @@ __all__ = [
     "TrafficAnalytics",
     "UrbanEvent",
     "CameraSafetyProfile",
+    "SafetyRun",
+    "SafetyEvent",
 ]

@@ -29,6 +29,7 @@ from app.models.detection import Detection  # noqa: E402  # noqa: F401
 from app.models.tracked_object import TrackedObject  # noqa: E402  # noqa: F401
 from app.models.trajectory import TrajectoryPoint  # noqa: E402  # noqa: F401
 from app.models.traffic_analytics import TrafficAnalytics  # noqa: E402  # noqa: F401
+from app.models.safety_run import SafetyRun, SafetyEvent  # noqa: E402  # noqa: F401
 
 # ── Alembic Config Object ─────────────────────────────────────────────────────
 config = context.config

@@ -11,10 +11,10 @@ import type {
 } from "@/types/api";
 
 export async function getVideos(params?: {
-  page?: number;
-  limit?: number;
-  status?: string;
-  bus_id?: string;
+  page?: number | undefined;
+  limit?: number | undefined;
+  status?: string | undefined;
+  bus_id?: string | undefined;
 }): Promise<PaginatedResponse<BackendVideo>> {
   const response = await apiClient.get<PaginatedResponse<BackendVideo>>("/videos", {
     params,
@@ -30,10 +30,10 @@ export async function getVideo(id: string): Promise<BackendVideo> {
 export async function uploadVideo(
   file: File,
   options?: {
-    bus_id?: string;
-    latitude?: number;
-    longitude?: number;
-    onUploadProgress?: (progressEvent: { loaded: number; total?: number }) => void;
+    bus_id?: string | undefined;
+    latitude?: number | undefined;
+    longitude?: number | undefined;
+    onUploadProgress?: ((progressEvent: { loaded: number; total?: number }) => void) | undefined;
   }
 ): Promise<BackendVideo> {
   const formData = new FormData();
@@ -48,15 +48,19 @@ export async function uploadVideo(
     formData.append("longitude", options.longitude.toString());
   }
 
+  const config: Record<string, unknown> = {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  };
+  if (options?.onUploadProgress) {
+    config["onUploadProgress"] = options.onUploadProgress;
+  }
+
   const response = await apiClient.post<ApiResponse<BackendVideo>>(
     "/videos/upload",
     formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-      onUploadProgress: options?.onUploadProgress,
-    }
+    config
   );
   return response.data.data;
 }

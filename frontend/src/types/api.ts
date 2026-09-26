@@ -24,7 +24,7 @@ export interface PaginatedResponse<T> {
 
 export interface ApiError {
   message: string;
-  status?: number;
+  status?: number | undefined;
   details?: unknown;
 }
 
