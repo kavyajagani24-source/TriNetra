@@ -6,19 +6,35 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * UrbanPulse design system — municipal GIS operations.
- * Light operational chrome (white panels, light gray canvas, muted blue accent)
- * sitting alongside a very dark navy GIS map surface.
+ * TRINETRA DESIGN SYSTEM — PHASE 1 RESET
+ * Professional Municipal GIS & Road Infrastructure Operations
+ * Palette: Light Green / Sage / Warm Off-White / Charcoal
+ * Visual reference: RoadMetrics AI GIS Platform
  */
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --font-sans: var(--font-body);
-  --font-mono: var(--font-numeric);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Brand Palette */
+  --color-brand-dark: #245B45;
+  --color-brand-primary: #3F8F68;
+  --color-brand-light: #DDEFE5;
+  --color-brand-soft: #EEF7F1;
+  --color-surface-warm: #F8FAF8;
+  --color-surface-muted: #F3F6F4;
+  --color-surface-card: #FFFFFF;
+  --color-text-main: #1F2933;
+  --color-text-muted: #66736D;
+  --color-border-subtle: #D9E2DC;
+
+  /* Standard Application Variables */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -38,99 +54,74 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-ring-offset-background: var(--background);
+
+  /* Status Tokens */
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
-  --color-major: var(--major);
-  --color-major-soft: var(--major-soft);
   --color-critical: var(--critical);
   --color-critical-soft: var(--critical-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
-  --color-cv: var(--cv);
-  --color-map: var(--map-base);
-  --color-map-deep: var(--map-deep);
-  --color-map-line: var(--map-line);
-  --color-map-panel: var(--map-panel);
-  --color-map-foreground: var(--map-foreground);
-  --color-map-muted: var(--map-muted);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --shadow-panel: 0 1px 2px oklch(0.25 0.03 260 / 0.06), 0 1px 1px oklch(0.25 0.03 260 / 0.04);
-  --shadow-float: 0 4px 16px oklch(0.2 0.03 260 / 0.18);
+
+  /* Map Specific Tokens */
+  --color-map-base: #0f172a;
+  --color-map-panel: #ffffff;
+  --color-map-border: #D9E2DC;
+
+  /* Elevation Shadows */
+  --shadow-subtle: 0 1px 2px 0 rgba(31, 41, 51, 0.05);
+  --shadow-panel: 0 1px 3px 0 rgba(31, 41, 51, 0.06), 0 1px 2px -1px rgba(31, 41, 51, 0.04);
+  --shadow-float: 0 4px 14px 0 rgba(31, 41, 51, 0.09);
+  --shadow-drawer: 0 8px 24px 0 rgba(31, 41, 51, 0.12);
 }
 
 :root {
-  --radius: 0.4rem;
-  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-numeric: "IBM Plex Mono", ui-monospace, monospace;
+  --radius: 0.375rem; /* 6px */
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-numeric: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --background: oklch(0.973 0.002 250);
-  --foreground: oklch(0.26 0.02 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.26 0.02 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.26 0.02 260);
-  --primary: oklch(0.52 0.12 253);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.962 0.004 250);
-  --secondary-foreground: oklch(0.34 0.02 260);
-  --muted: oklch(0.965 0.003 250);
-  --muted-foreground: oklch(0.55 0.017 258);
-  --accent: oklch(0.955 0.012 250);
-  --accent-foreground: oklch(0.35 0.05 253);
-  --destructive: oklch(0.55 0.2 27);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.918 0.005 250);
-  --input: oklch(0.918 0.005 250);
-  --ring: oklch(0.62 0.1 253);
+  /* Primary Light Environmental Theme */
+  --background: #F8FAF8;
+  --foreground: #1F2933;
+  --card: #FFFFFF;
+  --card-foreground: #1F2933;
+  --popover: #FFFFFF;
+  --popover-foreground: #1F2933;
 
-  --ok: oklch(0.6 0.14 152);
-  --ok-soft: oklch(0.95 0.04 152);
-  --warn: oklch(0.75 0.15 82);
-  --warn-soft: oklch(0.96 0.05 88);
-  --major: oklch(0.66 0.17 47);
-  --major-soft: oklch(0.96 0.05 55);
-  --critical: oklch(0.55 0.21 26);
-  --critical-soft: oklch(0.955 0.03 26);
-  --info: oklch(0.55 0.12 250);
-  --info-soft: oklch(0.955 0.02 250);
-  --cv: oklch(0.66 0.29 330);
+  /* Brand Green Accent */
+  --primary: #245B45;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F3F6F4;
+  --secondary-foreground: #1F2933;
 
-  --map-base: oklch(0.24 0.022 258);
-  --map-deep: oklch(0.19 0.022 258);
-  --map-line: oklch(0.32 0.02 258);
-  --map-panel: oklch(0.22 0.022 258);
-  --map-foreground: oklch(0.9 0.008 250);
-  --map-muted: oklch(0.62 0.015 255);
+  --muted: #F3F6F4;
+  --muted-foreground: #66736D;
+  --accent: #EEF7F1;
+  --accent-foreground: #245B45;
 
-  --chart-1: oklch(0.55 0.12 250);
-  --chart-2: oklch(0.62 0.13 195);
-  --chart-3: oklch(0.66 0.17 47);
-  --chart-4: oklch(0.6 0.14 152);
-  --chart-5: oklch(0.55 0.18 300);
-}
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #D9E2DC;
+  --input: #D9E2DC;
+  --ring: #3F8F68;
 
-.dark {
-  --background: oklch(0.19 0.022 258);
-  --foreground: oklch(0.95 0.005 250);
-  --card: oklch(0.23 0.022 258);
-  --card-foreground: oklch(0.95 0.005 250);
-  --popover: oklch(0.23 0.022 258);
-  --popover-foreground: oklch(0.95 0.005 250);
-  --secondary: oklch(0.28 0.02 258);
-  --secondary-foreground: oklch(0.95 0.005 250);
-  --muted: oklch(0.28 0.02 258);
-  --muted-foreground: oklch(0.7 0.015 255);
-  --accent: oklch(0.3 0.03 255);
-  --accent-foreground: oklch(0.95 0.005 250);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
+  /* Semantic Status */
+  --ok: #16A34A;
+  --ok-soft: #F0FDF4;
+  --warn: #D97706;
+  --warn-soft: #FFFBEB;
+  --critical: #DC2626;
+  --critical-soft: #FEF2F2;
+  --info: #2563EB;
+  --info-soft: #EFF6FF;
+
+  --chart-1: #245B45;
+  --chart-2: #3F8F68;
+  --chart-3: #D97706;
+  --chart-4: #DC2626;
+  --chart-5: #2563EB;
 }
 
 @layer base {
@@ -143,20 +134,19 @@
     color: var(--color-foreground);
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.011em;
   }
 
-  h1,
-  h2,
-  h3,
-  h4 {
-    letter-spacing: -0.011em;
+  h1, h2, h3, h4 {
+    letter-spacing: -0.015em;
+    color: var(--color-foreground);
   }
 }
 
 @utility panel {
   background-color: var(--color-card);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 6px;
   box-shadow: var(--shadow-panel);
 }
 
@@ -168,7 +158,7 @@
 @utility label-xs {
   font-size: 10px;
   line-height: 14px;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   font-weight: 600;
   color: var(--color-muted-foreground);
@@ -177,4 +167,18 @@
 @utility scroll-thin {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
+}
+
+/* Mapbox Popup Overrides for Clean Light GIS styling */
+.mapboxgl-popup.trinetra-road-popup .mapboxgl-popup-content {
+  background: #ffffff !important;
+  color: #1F2933 !important;
+  border: 1px solid #D9E2DC !important;
+  border-radius: 6px !important;
+  padding: 8px 10px !important;
+  box-shadow: 0 4px 14px rgba(31, 41, 51, 0.1) !important;
+}
+
+.mapboxgl-popup.trinetra-road-popup .mapboxgl-popup-tip {
+  border-top-color: #ffffff !important;
 }
