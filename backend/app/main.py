@@ -129,6 +129,14 @@ def create_application() -> FastAPI:
     except Exception as exc:
         logger.error("Failed to mount The Sixth Sense AI routers: %s", exc)
 
+    # ── Person 4: Incident + ANPR AI Router ───────────────────────────────────
+    try:
+        from app.api.v1.incident import router as incident_router
+        app.include_router(incident_router)
+        logger.info("Person 4 Incident & ANPR AI router mounted at /api/v1/incident")
+    except Exception as exc:
+        logger.error("Failed to mount Incident AI router: %s", exc)
+
     # ── Static Files (Evidence & Processed Video Storage) ─────────────────────
     import os
     if os.path.exists(settings.STORAGE_PATH):
