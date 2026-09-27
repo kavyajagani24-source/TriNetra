@@ -4,9 +4,9 @@ import { ExecutivePage } from "@/pages/ExecutivePage";
 export const Route = createFileRoute("/executive")({
   head: () => ({
     meta: [
-      { title: "Executive Summary | UrbanPulse" },
+      { title: "Executive Summary | TRINETRA" },
       { name: "description", content: "City-level outcomes, ward performance and department accountability." },
-      { property: "og:title", content: "Executive Summary | UrbanPulse" },
+      { property: "og:title", content: "Executive Summary | TRINETRA" },
       { property: "og:description", content: "City-level outcomes, ward performance and department accountability." },
     ],
   }),

@@ -4,9 +4,9 @@ import { RoadsPage } from "@/pages/RoadsPage";
 export const Route = createFileRoute("/roads")({
   head: () => ({
     meta: [
-      { title: "Road Condition Intelligence | UrbanPulse" },
+      { title: "Road Condition Intelligence | TRINETRA" },
       { name: "description", content: "Road surface health, defect discovery and segment-level condition scoring." },
-      { property: "og:title", content: "Road Condition Intelligence | UrbanPulse" },
+      { property: "og:title", content: "Road Condition Intelligence | TRINETRA" },
       { property: "og:description", content: "Road surface health, defect discovery and segment-level condition scoring." },
     ],
   }),

@@ -59,7 +59,7 @@ export function BusDetailDrawer({ bus, onClose }: BusDetailDrawerProps) {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold tracking-tight">Bus Unit {bus.id}</h2>
-                <span className="font-mono text-xs text-blue-300">Route {bus.route}</span>
+                <span className="font-data text-xs text-blue-300">Route {bus.route}</span>
               </div>
               <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
                 <Radio className="h-3.5 w-3.5 text-emerald-400" />
@@ -109,7 +109,7 @@ export function BusDetailDrawer({ bus, onClose }: BusDetailDrawerProps) {
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Current Speed</span>
-                <span className="font-semibold text-slate-800 font-mono">{bus.speedKph} km/h</span>
+                <span className="font-semibold text-slate-800 font-data">{bus.speedKph} km/h</span>
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Cameras Online</span>
@@ -119,13 +119,13 @@ export function BusDetailDrawer({ bus, onClose }: BusDetailDrawerProps) {
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">GPS Coordinates</span>
-                <span className="font-mono text-slate-800">
+                <span className="font-data text-slate-800">
                   {bus.position.lat.toFixed(4)}, {bus.position.lng.toFixed(4)}
                 </span>
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Last Communication</span>
-                <span className="font-mono text-slate-800">{bus.lastPacket}</span>
+                <span className="font-data text-slate-800">{bus.lastPacket}</span>
               </div>
             </div>
           </div>
@@ -171,7 +171,7 @@ export function BusDetailDrawer({ bus, onClose }: BusDetailDrawerProps) {
                       {(obs.confidence * 100).toFixed(0)}% conf
                     </span>
                   </div>
-                  <span className="text-slate-400 font-mono text-[11px]">{obs.at}</span>
+                  <span className="text-slate-400 font-data text-[11px]">{obs.at}</span>
                 </div>
               ))}
             </div>
@@ -191,7 +191,7 @@ export function BusDetailDrawer({ bus, onClose }: BusDetailDrawerProps) {
                       <span className="font-bold block">{inc.type} ({inc.id})</span>
                       <span className="text-[11px] text-slate-600">{inc.location}</span>
                     </div>
-                    <span className="font-mono text-[11px] font-semibold">{inc.at}</span>
+                    <span className="font-data text-[11px] font-semibold">{inc.at}</span>
                   </div>
                 ))}
               </div>

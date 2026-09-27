@@ -26,13 +26,22 @@ export function LoginPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,oklch(0.32_0.05_250)_0%,transparent_55%)]" />
         <div className="absolute inset-0 bg-[repeating-linear-gradient(65deg,rgba(255,255,255,0.05)_0_1px,transparent_1px_46px),repeating-linear-gradient(-25deg,rgba(255,255,255,0.04)_0_1px,transparent_1px_62px)]" />
         <div className="absolute bottom-10 left-10 max-w-md">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="grid h-12 w-12 place-items-center rounded-xl bg-white/10 backdrop-blur-md border border-white/20 p-2 shadow-lg">
+              <img src="/logos/logo-icon-light.png" alt="TriNetra Emblem" className="h-8 w-8 object-contain" />
+            </div>
+            <div>
+              <img src="/logos/logo-text-light.png" alt="त्रिNetra" className="h-6 w-auto object-contain" />
+              <p className="text-[10px] font-medium tracking-wider text-[#7DB89A] uppercase mt-0.5">SIH 2026 · AI Urban Sensing</p>
+            </div>
+          </div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-map-foreground/70">
             Smart India Hackathon 2026 · SIH26125
           </p>
-          <h2 className="mt-3 text-3xl font-semibold leading-tight text-map-foreground">
+          <h2 className="font-display mt-3 text-3xl font-semibold leading-tight text-map-foreground">
             Turning the city bus fleet into a continuous urban sensing network.
           </h2>
-          <p className="mt-3 text-sm text-map-foreground/70">
+          <p className="font-ui mt-3 text-sm text-map-foreground/70">
             Observe → corroborate → prioritize → assign → repair → re-observe → verify → human
             sign-off.
           </p>
@@ -41,16 +50,15 @@ export function LoginPage() {
 
       <section className="flex items-center justify-center bg-background px-6 py-10">
         <div className="w-full max-w-sm">
-          <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded bg-primary text-primary-foreground">
-              <Bus className="h-5 w-5" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <h1 className="text-[17px] font-semibold text-foreground">UrbanPulse</h1>
-              <p className="truncate text-[11px] text-muted-foreground">
-                Mobile Urban Intelligence Platform
-              </p>
-            </div>
+          <div className="mb-6 flex flex-col items-start gap-1">
+            <img
+              src="/logos/logo-full.png"
+              alt="त्रिNetra"
+              className="h-10 w-auto object-contain"
+            />
+            <p className="text-[11px] font-medium tracking-wide text-muted-foreground mt-0.5">
+              Municipal Urban Sensing & AI Infrastructure Platform
+            </p>
           </div>
 
           <form

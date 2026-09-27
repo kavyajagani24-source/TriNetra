@@ -1,5 +1,5 @@
-/**
- * UrbanEye AI — Global Application State (Zustand)
+﻿/**
+ * TriNetra — Global Application State (Zustand)
  *
  * Tracks Demo Mode status, selected bus, selected video, and active inspection items.
  */
@@ -25,7 +25,7 @@ export const useAppStore = create<AppState>((set) => ({
   demoMode:
     typeof window !== "undefined" && localStorage.getItem("urbaneye_demo_mode") !== null
       ? localStorage.getItem("urbaneye_demo_mode") === "true"
-      : env.demoModeDefault,
+      : false,
   setDemoMode: (enabled: boolean) => {
     if (typeof window !== "undefined") {
       localStorage.setItem("urbaneye_demo_mode", String(enabled));

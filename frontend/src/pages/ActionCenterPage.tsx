@@ -108,7 +108,7 @@ export function ActionCenterPage() {
             <button
               key={tab.id}
               onClick={() => setQuickFilter(tab.id)}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-xs font-semibold transition-all ${
                 quickFilter === tab.id
                   ? "bg-slate-900 text-white shadow-xs"
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -185,7 +185,7 @@ export function ActionCenterPage() {
         {/* Main Operational Table */}
         <div className="rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3 bg-slate-50">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+            <span className="font-ui text-xs font-semibold uppercase tracking-wider text-slate-700">
               Operational Issues List ({filteredIssues.length} items)
             </span>
             <span className="text-[11px] text-slate-500 font-mono">

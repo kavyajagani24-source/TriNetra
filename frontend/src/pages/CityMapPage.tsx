@@ -1,42 +1,41 @@
 import { useState } from "react";
 import {
-  Compass,
-  Layers,
   AlertTriangle,
-  Bus,
   RotateCcw,
   X,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
-  ShieldAlert,
-  Share2,
   Wrench,
-  CheckCircle2,
   Eye,
-  Route,
+  ChevronDown,
+  Filter,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { AndheriIntelligenceMap, MapLegend } from "@/components/maps/MapView";
 import {
-  DEMO_REGION,
   ANDHERI_ROADS,
   ANDHERI_ISSUES,
   ANDHERI_STATS,
   CONDITION_CONFIG,
-  SEVERITY_MARKER_COLOR,
   type AndheriRoad,
   type AndheriIssue,
 } from "@/data/andheri";
 
-// Evidence assets
+// Realistic photographic inspection frames
 import evidencePothole from "@/assets/evidence-pothole.jpg";
 import evidenceWater from "@/assets/evidence-water.jpg";
 import evidenceTraffic from "@/assets/evidence-traffic.jpg";
 
 export function CityMapPage() {
+  // Layer visibility states (Native GIS Controls)
+  const [showRoadCondition, setShowRoadCondition] = useState(true);
+  const [showIssues, setShowIssues] = useState(true);
   const [showFleet, setShowFleet] = useState(false);
-  const [showOverview, setShowOverview] = useState(true);
+  const [showObservations, setShowObservations] = useState(false);
+  const [conditionFilter, setConditionFilter] = useState<"ALL" | "CRITICAL" | "POOR_CRITICAL" | "WATCH_POOR">("ALL");
+
+  // Panel & Selection states
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [selectedRoad, setSelectedRoad] = useState<AndheriRoad | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<AndheriIssue | null>(null);
 
@@ -51,6 +50,8 @@ export function CityMapPage() {
     setSelectedRoad(road);
   };
 
+  const hasSelection = Boolean(selectedIssue || selectedRoad);
+
   const handleClearSelection = () => {
     setSelectedRoad(null);
     setSelectedIssue(null);
@@ -58,409 +59,385 @@ export function CityMapPage() {
 
   return (
     <AppShell>
-      <div className="relative flex flex-1 overflow-hidden rounded-lg border border-[#D9E2DC] bg-[#0f172a] shadow-sm"
-           style={{ height: "calc(100vh - 84px)" }}>
-
-        {/* ---------------- Map Canvas ---------------- */}
+      <div className="relative h-full w-full overflow-hidden bg-[#0A101D] select-none">
+        {/* Full Viewport Map Canvas: THE MAP IS THE PRODUCT */}
         <AndheriIntelligenceMap
+          showRoadCondition={showRoadCondition}
+          showIssues={showIssues}
           showFleet={showFleet}
-          selectedRoadId={selectedRoad?.id ?? null}
-          selectedIssueId={selectedIssue?.id ?? null}
+          showObservations={showObservations}
+          conditionFilter={conditionFilter}
+          selectedRoadId={selectedRoad?.id}
+          selectedIssueId={selectedIssue?.id}
           onSelectRoad={handleSelectRoad}
           onSelectIssue={handleSelectIssue}
-          className="flex-1 h-full w-full"
+          className="h-full w-full"
         />
 
-        {/* ---------------- Left Panel: RoadMetrics Style Overview ---------------- */}
+        {/* ------------------------------------------------------------- */}
+        {/* LEFT PANEL: ROAD INTELLIGENCE (GIS Information Architecture) */}
+        {/* Sections 6 & 8: Calm, compact, structured, credible */}
+        {/* ------------------------------------------------------------- */}
         <div
-          className={`absolute left-3 top-3 bottom-3 z-20 flex transition-all duration-300 ease-in-out ${
-            showOverview ? "translate-x-0" : "-translate-x-[calc(100%-12px)]"
+          className={`absolute top-4 left-4 z-20 transition-transform duration-200 ease-out ${
+            isPanelCollapsed ? "-translate-x-[calc(100%+16px)]" : "translate-x-0"
           }`}
         >
-          <div className="relative w-80 rounded-lg border border-[#D9E2DC] bg-white/98 shadow-md backdrop-blur-xs flex flex-col overflow-hidden text-[#1F2933]">
-            {/* Header */}
-            <div className="border-b border-[#D9E2DC] px-4 py-3 bg-[#F8FAF8]">
+          <div className="relative w-72 max-h-[calc(100vh-100px)] rounded-md border border-[#D9E2DC] bg-white shadow-xs flex flex-col overflow-hidden text-xs">
+            {/* Header: ROAD INTELLIGENCE / Andheri, Mumbai */}
+            <div className="border-b border-[#D9E2DC] px-3.5 py-3 bg-[#F8FAF8]">
               <div className="flex items-center justify-between">
-                <span className="rounded bg-[#EEF7F1] border border-[#DDEFE5] px-2 py-0.5 text-[10px] font-semibold text-[#245B45] tracking-wide">
-                  {DEMO_REGION.name} Municipal Sector
+                <div>
+                  <h2 className="font-ui text-xs font-bold uppercase tracking-wider text-[#1F2933]">
+                    ROAD INTELLIGENCE
+                  </h2>
+                  <p className="font-ui text-[11px] text-[#66736D] font-medium mt-0.5">
+                    Andheri, Mumbai
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded bg-[#EEF7F1] border border-[#DDEFE5] px-1.5 py-0.5 text-[10px] font-semibold text-[#245B45]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#10b981]" />
+                  Active
                 </span>
-                <span className="text-[10px] text-[#66736D] font-medium">OSM Verified</span>
               </div>
-              <h2 className="text-sm font-bold text-[#1F2933] mt-1.5">Data Visualization</h2>
-              <p className="text-[11px] text-[#66736D] leading-tight">
-                View &amp; understand surveyed road network condition at a glance.
-              </p>
             </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-              {/* Overview Metrics */}
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">
+              {/* SECTION: OVERVIEW */}
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#66736D] mb-2.5">
-                  Network Overview
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#66736D] mb-1.5">
+                  Overview
                 </p>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="rounded-md border border-[#D9E2DC] bg-[#F8FAF8] p-2.5">
-                    <div className="flex items-center gap-1.5 text-[#66736D] mb-1">
-                      <Route className="h-3.5 w-3.5 text-[#245B45]" />
-                      <span className="text-[10px] font-medium">Surveyed Distance</span>
-                    </div>
-                    <p className="text-base font-bold text-[#1F2933] font-mono leading-none">
-                      {ANDHERI_STATS.totalSurveyedKm} <span className="text-xs font-normal text-[#66736D]">km</span>
-                    </p>
-                    <p className="text-[10px] text-[#66736D] mt-1">354 road segments</p>
-                  </div>
-
-                  <div className="rounded-md border border-[#D9E2DC] bg-[#F8FAF8] p-2.5">
-                    <div className="flex items-center gap-1.5 text-[#66736D] mb-1">
-                      <AlertTriangle className="h-3.5 w-3.5 text-[#D97706]" />
-                      <span className="text-[10px] font-medium">Defects Identified</span>
-                    </div>
-                    <p className="text-base font-bold text-[#D97706] font-mono leading-none">
-                      {ANDHERI_STATS.totalIssues} <span className="text-xs font-normal text-[#66736D]">defects</span>
-                    </p>
-                    <p className="text-[10px] text-[#DC2626] font-semibold mt-1">
-                      {ANDHERI_STATS.priorityIssues} critical priority
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-2">
+                    <p className="text-[10px] text-[#66736D]">Surveyed</p>
+                    <p className="font-data text-sm font-bold text-[#1F2933] mt-0.5">
+                      {ANDHERI_STATS.surveyedSegments} <span className="font-data text-[10px] font-normal text-[#66736D]">segments</span>
                     </p>
                   </div>
 
-                  <div className="rounded-md border border-[#D9E2DC] bg-[#F8FAF8] p-2.5">
-                    <div className="flex items-center gap-1.5 text-[#66736D] mb-1">
-                      <Eye className="h-3.5 w-3.5 text-[#3F8F68]" />
-                      <span className="text-[10px] font-medium">Survey Points</span>
-                    </div>
-                    <p className="text-sm font-bold text-[#1F2933] font-mono leading-none">
-                      {ANDHERI_STATS.totalObservationPoints.toLocaleString()}
+                  <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-2">
+                    <p className="text-[10px] text-[#66736D]">Issues</p>
+                    <p className="font-data text-sm font-bold text-[#D97706] mt-0.5">
+                      {ANDHERI_STATS.totalIssues} <span className="font-data text-[10px] font-normal text-[#66736D]">detected</span>
                     </p>
-                    <p className="text-[10px] text-[#66736D] mt-1">Centerline readings</p>
                   </div>
 
-                  <div className="rounded-md border border-[#D9E2DC] bg-[#F8FAF8] p-2.5">
-                    <div className="flex items-center gap-1.5 text-[#66736D] mb-1">
-                      <Bus className="h-3.5 w-3.5 text-[#2563EB]" />
-                      <span className="text-[10px] font-medium">Active Fleet</span>
-                    </div>
-                    <p className="text-sm font-bold text-[#2563EB] font-mono leading-none">
-                      {ANDHERI_STATS.totalBuses} <span className="text-xs font-normal text-[#66736D]">buses</span>
+                  <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-2">
+                    <p className="text-[10px] text-[#66736D]">Priority</p>
+                    <p className="font-data text-sm font-bold text-[#DC2626] mt-0.5">
+                      {ANDHERI_STATS.priorityIssues} <span className="text-[10px] font-normal text-[#DC2626]">critical</span>
                     </p>
-                    <p className="text-[10px] text-[#66736D] mt-1">Live tracking</p>
+                  </div>
+
+                  <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-2">
+                    <p className="text-[10px] text-[#66736D]">Fleet</p>
+                    <p className="font-data text-sm font-bold text-[#2563EB] mt-0.5">
+                      {ANDHERI_STATS.activeBuses} <span className="font-data text-[10px] font-normal text-[#66736D]">buses</span>
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {/* Condition Break-Up (RoadMetrics Style) */}
+              {/* SECTION: ROAD CONDITION */}
               <div className="border-t border-[#D9E2DC] pt-3">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-1.5">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[#66736D]">
-                    Condition Break-Up
+                    Road Condition
                   </p>
-                  <span className="text-[10px] text-[#66736D] font-mono">107.8 km total</span>
+                  <span className="font-data text-[10px] text-[#66736D]">
+                    {ANDHERI_STATS.totalSurveyedKm} km
+                  </span>
                 </div>
 
-                <div className="space-y-2">
-                  {([
-                    { key: "healthy", level: "Level 0", label: "Healthy", color: "#16A34A", dist: "45.1 km", pct: 41.8 },
-                    { key: "watch", level: "Level 1", label: "Watch", color: "#EAB308", dist: "35.9 km", pct: 33.3 },
-                    { key: "poor", level: "Level 2", label: "Poor", color: "#EA580C", dist: "18.0 km", pct: 16.7 },
-                    { key: "critical", level: "Level 3", label: "Critical", color: "#DC2626", dist: "8.8 km", pct: 8.2 },
-                  ] as const).map((item) => (
-                    <div key={item.key} className="rounded-md border border-[#D9E2DC]/80 bg-[#F8FAF8] p-2">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="h-2 w-2 rounded-full shrink-0" style={{ background: item.color }} />
-                          <span className="font-semibold text-xs text-[#1F2933]">{item.label}</span>
-                          <span className="text-[10px] text-[#66736D] font-mono">({item.level})</span>
-                        </div>
-                        <span className="text-xs font-bold text-[#1F2933] font-mono">{item.pct}%</span>
+                <div className="space-y-1.5">
+                  {/* Healthy */}
+                  <div className="rounded border border-[#D9E2DC]/80 bg-[#F8FAF8] px-2 py-1.5">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#10b981]" />
+                        <span className="font-semibold text-[#1F2933]">Healthy</span>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-[#66736D] mb-1.5">
-                        <span>Total Distance</span>
-                        <span className="font-mono font-medium text-[#1F2933]">{item.dist}</span>
-                      </div>
-                      <div className="h-1.5 w-full rounded-full bg-[#D9E2DC] overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${item.pct}%`, background: item.color }}
-                        />
-                      </div>
+                      <span className="font-mono text-[#1F2933] font-bold">
+                        {ANDHERI_STATS.conditionBreakdown.healthy}{" "}
+                        <span className="font-data text-[10px] font-normal text-[#66736D]">
+                          ({ANDHERI_STATS.conditionPercentages.healthy}%)
+                        </span>
+                      </span>
                     </div>
-                  ))}
+                    <div className="h-1.5 w-full rounded-full bg-[#D9E2DC] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-[#10b981]"
+                        style={{ width: `${ANDHERI_STATS.conditionPercentages.healthy}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Watch */}
+                  <div className="rounded border border-[#D9E2DC]/80 bg-[#F8FAF8] px-2 py-1.5">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#eab308]" />
+                        <span className="font-semibold text-[#1F2933]">Watch</span>
+                      </div>
+                      <span className="font-mono text-[#1F2933] font-bold">
+                        {ANDHERI_STATS.conditionBreakdown.watch}{" "}
+                        <span className="font-data text-[10px] font-normal text-[#66736D]">
+                          ({ANDHERI_STATS.conditionPercentages.watch}%)
+                        </span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-[#D9E2DC] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-[#eab308]"
+                        style={{ width: `${ANDHERI_STATS.conditionPercentages.watch}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Poor */}
+                  <div className="rounded border border-[#D9E2DC]/80 bg-[#F8FAF8] px-2 py-1.5">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#f97316]" />
+                        <span className="font-semibold text-[#1F2933]">Poor</span>
+                      </div>
+                      <span className="font-mono text-[#1F2933] font-bold">
+                        {ANDHERI_STATS.conditionBreakdown.poor}{" "}
+                        <span className="font-data text-[10px] font-normal text-[#66736D]">
+                          ({ANDHERI_STATS.conditionPercentages.poor}%)
+                        </span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-[#f97316]"
+                      style={{ width: `${ANDHERI_STATS.conditionPercentages.poor}%` }}
+                    />
+                  </div>
+
+                  {/* Critical */}
+                  <div className="rounded border border-[#D9E2DC]/80 bg-[#F8FAF8] px-2 py-1.5">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#ef4444]" />
+                        <span className="font-semibold text-[#1F2933]">Critical</span>
+                      </div>
+                      <span className="font-mono text-[#DC2626] font-bold">
+                        {ANDHERI_STATS.conditionBreakdown.critical}{" "}
+                        <span className="font-data text-[10px] font-normal text-[#66736D]">
+                          ({ANDHERI_STATS.conditionPercentages.critical}%)
+                        </span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-[#D9E2DC] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-[#ef4444]"
+                        style={{ width: `${ANDHERI_STATS.conditionPercentages.critical}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Visualization Toggles */}
-              <div className="border-t border-[#D9E2DC] pt-3 space-y-2">
+              {/* SECTION: LAYERS */}
+              <div className="border-t border-[#D9E2DC] pt-3 space-y-1.5">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#66736D] mb-1">
-                  Layer Display
+                  Layers
                 </p>
 
-                <label className="flex items-center justify-between p-2 rounded-md border border-[#D9E2DC] bg-[#F8FAF8] cursor-pointer hover:bg-[#F3F6F4] transition-colors">
-                  <span className="text-xs font-medium text-[#1F2933] flex items-center gap-2">
-                    <Bus className="h-3.5 w-3.5 text-[#2563EB]" />
-                    Show Fleet Buses
-                  </span>
+                <label className="flex items-center justify-between py-1 px-1.5 rounded hover:bg-[#F3F6F4] cursor-pointer">
+                  <span className="text-xs font-medium text-[#1F2933]">Road condition</span>
+                  <input
+                    type="checkbox"
+                    checked={showRoadCondition}
+                    onChange={(e) => setShowRoadCondition(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-[#D9E2DC] text-[#245B45] focus:ring-0 accent-[#245B45] cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between py-1 px-1.5 rounded hover:bg-[#F3F6F4] cursor-pointer">
+                  <span className="text-xs font-medium text-[#1F2933]">Issues</span>
+                  <input
+                    type="checkbox"
+                    checked={showIssues}
+                    onChange={(e) => setShowIssues(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-[#D9E2DC] text-[#245B45] focus:ring-0 accent-[#245B45] cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between py-1 px-1.5 rounded hover:bg-[#F3F6F4] cursor-pointer">
+                  <span className="text-xs font-medium text-[#1F2933]">Fleet</span>
                   <input
                     type="checkbox"
                     checked={showFleet}
                     onChange={(e) => setShowFleet(e.target.checked)}
-                    className="h-4 w-4 rounded border-[#D9E2DC] text-[#245B45] focus:ring-[#3F8F68] accent-[#245B45]"
+                    className="h-3.5 w-3.5 rounded border-[#D9E2DC] text-[#245B45] focus:ring-0 accent-[#245B45] cursor-pointer"
                   />
                 </label>
 
-                {selectedRoad && (
-                  <button
-                    onClick={handleClearSelection}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-md border border-[#D9E2DC] bg-white py-1.5 text-xs font-semibold text-[#66736D] hover:text-[#1F2933] hover:bg-[#F3F6F4] transition-colors"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Reset Road Selection
-                  </button>
-                )}
+                <label className="flex items-center justify-between py-1 px-1.5 rounded hover:bg-[#F3F6F4] cursor-pointer">
+                  <span className="text-xs font-medium text-[#1F2933]">Observations</span>
+                  <input
+                    type="checkbox"
+                    checked={showObservations}
+                    onChange={(e) => setShowObservations(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-[#D9E2DC] text-[#245B45] focus:ring-0 accent-[#245B45] cursor-pointer"
+                  />
+                </label>
               </div>
             </div>
 
-            {/* Footer Notice */}
-            <div className="border-t border-[#D9E2DC] px-3.5 py-2 bg-[#F8FAF8]">
-              <p className="text-[10px] text-[#66736D] leading-relaxed">
-                Network: 3,286 OSM roads. Condition attributes are demo operational values.
-              </p>
+            {/* Footer: Prototype data */}
+            <div className="border-t border-[#D9E2DC] px-3.5 py-2 bg-[#F8FAF8] text-[10px] text-[#66736D] flex items-center justify-between">
+              <span>Prototype data</span>
+              <span className="text-[#66736D]/70">Andheri demo environment</span>
             </div>
-
-            {/* Collapse toggle tab */}
-            <button
-              onClick={() => setShowOverview(false)}
-              className="absolute -right-3.5 top-1/2 -translate-y-1/2 h-7 w-3.5 bg-white border border-[#D9E2DC] rounded-r flex items-center justify-center text-[#66736D] hover:text-[#1F2933] shadow-xs"
-              title="Collapse Overview"
-            >
-              <ChevronLeft className="h-3 w-3" />
-            </button>
           </div>
 
-          {/* Expand button when collapsed */}
-          {!showOverview && (
-            <button
-              onClick={() => setShowOverview(true)}
-              className="ml-2 h-9 w-9 rounded-md bg-white border border-[#D9E2DC] shadow-md flex items-center justify-center text-[#1F2933] hover:bg-[#F3F6F4] transition-colors"
-              title="Expand Overview"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          )}
+          {/* Collapse / Expand Toggle Button */}
+          <button
+            onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+            className="absolute -right-3.5 top-4 z-30 grid h-6 w-6 place-items-center rounded-full border border-[#D9E2DC] bg-white text-[#1F2933] shadow-xs hover:bg-[#F3F6F4] transition-colors"
+            title={isPanelCollapsed ? "Expand panel" : "Collapse panel"}
+            aria-label={isPanelCollapsed ? "Expand panel" : "Collapse panel"}
+          >
+            {isPanelCollapsed ? (
+              <ChevronRight className="h-3 w-3" />
+            ) : (
+              <ChevronLeft className="h-3 w-3" />
+            )}
+          </button>
         </div>
 
-        {/* ---------------- Right Panel: GIS Inspection Drawer (RoadMetrics Image 3 Style) ---------------- */}
+        {/* ------------------------------------------------------------- */}
+        {/* TOP MAP CONTROLS (Section 16) */}
+        {/* Road Intelligence · Andheri, Mumbai · All Conditions ▾ */}
+        {/* ------------------------------------------------------------- */}
+        <div className={`absolute top-4 z-20 flex items-center gap-2 transition-all duration-200 ${hasSelection ? "right-[408px]" : "right-4"}`}>
+
+          <div className="hidden sm:flex items-center gap-2 rounded-md border border-[#D9E2DC] bg-white/95 px-3 py-1.5 text-xs text-[#1F2933] shadow-xs backdrop-blur-xs">
+            <span className="font-semibold text-[#1F2933]">Road Intelligence</span>
+            <span className="text-[#D9E2DC]">|</span>
+            <span className="text-[#66736D]">Andheri, Mumbai</span>
+            <span className="text-[#D9E2DC]">|</span>
+            <div className="flex items-center gap-1">
+              <Filter className="h-3 w-3 text-[#66736D]" />
+              <select
+                value={conditionFilter}
+                onChange={(e) => setConditionFilter(e.target.value as any)}
+                className="bg-transparent text-xs font-semibold text-[#245B45] outline-none cursor-pointer"
+              >
+                <option value="ALL">All Conditions ▾</option>
+                <option value="CRITICAL">Critical Only ▾</option>
+                <option value="POOR_CRITICAL">Poor &amp; Critical ▾</option>
+                <option value="WATCH_POOR">Watch &amp; Poor ▾</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              handleClearSelection();
+              setConditionFilter("ALL");
+            }}
+            className="flex items-center gap-1.5 rounded-md border border-[#D9E2DC] bg-white/95 px-2.5 py-1.5 text-xs font-medium text-[#1F2933] shadow-xs hover:bg-[#F3F6F4] transition-colors backdrop-blur-xs"
+            title="Reset map view and filters"
+          >
+            <RotateCcw className="h-3 w-3 text-[#66736D]" />
+            <span>Reset</span>
+          </button>
+        </div>
+
+        {/* ------------------------------------------------------------- */}
+        {/* MAP LEGEND (Bottom Right, Unobtrusive) (Section 14) */}
+        {/* ------------------------------------------------------------- */}
+        <MapLegend className={`absolute bottom-6 z-10 transition-all duration-200 ${hasSelection ? "right-[408px]" : "right-14"}`} />
+
+        {/* ------------------------------------------------------------- */}
+        {/* RIGHT DETAIL DRAWER (Section 9, 10, 13) */}
+        {/* When nothing selected: NO DRAWER (Maximum map visibility). */}
+        {/* When issue selected: Issue Detail Drawer. */}
+        {/* When road selected: Road Detail Drawer. */}
+        {/* ------------------------------------------------------------- */}
         {selectedIssue && (
-          <div className="absolute right-3 top-3 bottom-3 z-20 w-88 sm:w-96 rounded-lg border border-[#D9E2DC] bg-white shadow-lg flex flex-col overflow-hidden text-[#1F2933] animate-in slide-in-from-right-4 duration-200">
-            <IssueInspectionDrawer
+          <div className="absolute top-4 right-4 bottom-4 z-30 w-96 rounded-md border border-[#D9E2DC] bg-white shadow-md flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-2 duration-150">
+            <IssueDetailDrawer
               issue={selectedIssue}
-              road={ANDHERI_ROADS.find((r) => r.id === selectedIssue.roadId) ?? null}
               onClose={handleClearSelection}
             />
           </div>
         )}
 
-        {selectedRoad && !selectedIssue && (
-          <div className="absolute right-3 top-3 bottom-3 z-20 w-84 sm:w-88 rounded-lg border border-[#D9E2DC] bg-white shadow-lg flex flex-col overflow-hidden text-[#1F2933] animate-in slide-in-from-right-4 duration-200">
-            <RoadSegmentDrawer
+        {!selectedIssue && selectedRoad && (
+          <div className="absolute top-4 right-4 bottom-4 z-30 w-96 rounded-md border border-[#D9E2DC] bg-white shadow-md flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-2 duration-150">
+            <RoadDetailDrawer
               road={selectedRoad}
               onClose={handleClearSelection}
             />
           </div>
         )}
-
-        {/* ---------------- Bottom-Left: Map Legend ---------------- */}
-        <div className="absolute bottom-3 left-3 z-10">
-          <MapLegend />
-        </div>
-
-        {/* ---------------- Top-Right Context Bar ---------------- */}
-        <div className="absolute right-3 top-3 z-10 hidden sm:flex items-center gap-2">
-          <div className="rounded-md border border-[#D9E2DC] bg-white/95 backdrop-blur-xs px-3 py-1.5 shadow-sm text-right">
-            <p className="text-[10px] text-[#66736D] font-medium uppercase tracking-wider">Active Sector</p>
-            <p className="text-xs font-bold text-[#1F2933]">Andheri • 107.8 km Surveyed</p>
-          </div>
-        </div>
       </div>
     </AppShell>
   );
 }
 
-// -------------------------------------------------------------
-// SUB-COMPONENTS: RoadMetrics Inspired Drawers
-// -------------------------------------------------------------
-
-function IssueInspectionDrawer({
+// -----------------------------------------------------------------------------
+// ISSUE DETAIL DRAWER (Sections 9 & 10)
+// MAJOR POTHOLE / S.V. Road, Andheri / CRITICAL / 91% confidence, 6 bus obs, 14m
+// Evidence: [large image]
+// Status: Under Review, [Open Task], [View History]
+// Technical details ▾ (collapsed by default)
+// -----------------------------------------------------------------------------
+function IssueDetailDrawer({
   issue,
-  road,
   onClose,
 }: {
   issue: AndheriIssue;
-  road: AndheriRoad | null;
   onClose: () => void;
 }) {
-  const isP1 = issue.priority === "P1";
   const isCritical = issue.severity === "critical";
-  const severityBadgeBg = isCritical ? "bg-[#FEF2F2] text-[#DC2626] border-[#FCA5A5]" : "bg-[#FFFBEB] text-[#D97706] border-[#FCD34D]";
+  const isMajor = issue.severity === "major";
 
-  // Pick appropriate evidence image based on issue type
-  const evidenceImg = issue.type === "waterlogging" ? evidenceWater : evidencePothole;
+  const evidenceImg =
+    issue.type === "crack"
+      ? evidenceWater
+      : issue.type === "debris"
+      ? evidenceTraffic
+      : evidencePothole;
 
-  return (
-    <>
-      {/* Header (Level 1 Information) */}
-      <div className="border-b border-[#D9E2DC] px-4 py-3 bg-[#F8FAF8] flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${severityBadgeBg}`}>
-              {issue.priority} • {issue.severity}
-            </span>
-            <span className="text-[10px] text-[#66736D] capitalize font-medium">
-              {issue.type.replace(/_/g, " ")}
-            </span>
-          </div>
-          <h3 className="text-sm font-bold text-[#1F2933] leading-snug">{issue.title}</h3>
-          <p className="text-xs font-semibold text-[#245B45] mt-0.5">
-            {issue.roadName}
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className="rounded p-1 text-[#66736D] hover:bg-[#F3F6F4] hover:text-[#1F2933] transition-colors"
-          title="Close Inspection"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* Body Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-        {/* Visual Inspection Evidence Preview (RoadMetrics Image 3 Style) */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#66736D]">
-              Camera Evidence Frame
-            </span>
-            <span className="text-[10px] text-[#245B45] font-semibold flex items-center gap-1">
-              <CheckCircle2 className="h-3 w-3" /> Telemetry Verified
-            </span>
-          </div>
-
-          <div className="relative rounded-md border border-[#D9E2DC] overflow-hidden bg-slate-900 aspect-video">
-            <img
-              src={evidenceImg}
-              alt="Road Defect Evidence"
-              className="h-full w-full object-cover"
-            />
-            {/* Defect Bounding Box Overlay */}
-            <div className="absolute inset-x-8 inset-y-6 border-2 border-[#DC2626] rounded-sm bg-[#DC2626]/10 flex items-start p-1 pointer-events-none">
-              <span className="bg-[#DC2626] text-white text-[9px] font-bold px-1.5 py-0.2 rounded-xs">
-                {issue.type.toUpperCase()} • {Math.round(issue.confidence * 100)}%
-              </span>
-            </div>
-            {/* Timestamp & Telemetry Stamp */}
-            <div className="absolute bottom-2 left-2 rounded bg-black/75 px-2 py-0.5 text-[9px] font-mono text-white/90">
-              Bearing: East • Speed: 24 km/h • GPS Valid
-            </div>
-          </div>
-        </div>
-
-        {/* Operational Context (Level 2 Information) */}
-        <div className="rounded-md border border-[#D9E2DC] bg-[#F8FAF8] p-3 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#66736D] mb-1">
-            Inspection Details
-          </p>
-          <div className="grid grid-cols-2 gap-y-2 gap-x-3 text-xs">
-            <div>
-              <p className="text-[10px] text-[#66736D]">Location</p>
-              <p className="font-semibold text-[#1F2933]">{issue.roadName}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-[#66736D]">Date &amp; Time</p>
-              <p className="font-semibold text-[#1F2933]">{issue.lastObserved}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-[#66736D]">Observed By</p>
-              <p className="font-semibold text-[#1F2933]">{issue.observedBy} fleet passes</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-[#66736D]">Status</p>
-              <p className="font-semibold text-[#D97706]">{issue.status}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Defect Breakdown */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#66736D] mb-1.5">
-            Defect Classification
-          </p>
-          <p className="text-xs text-[#1F2933] bg-[#F8FAF8] border border-[#D9E2DC] rounded-md p-2.5 leading-relaxed">
-            Severe Pothole, Minor Transverse Cracking, Moderate Alligator Fatigue, Ravelling Area
-          </p>
-        </div>
-
-        {/* Maintenance Recommendation Tags (RoadMetrics Image 3 Style) */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#66736D] mb-1.5">
-            Recommended Remediation Tags
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {["+ Patching", "+ Surface Dressing", "+ Joint Sealing", "+ PWD Work Order"].map((tag) => (
-              <span
-                key={tag}
-                className="rounded border border-[#D9E2DC] bg-[#F8FAF8] hover:bg-[#EEF7F1] hover:text-[#245B45] hover:border-[#DDEFE5] px-2 py-1 text-[11px] font-medium text-[#1F2933] transition-colors cursor-pointer"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="pt-2 flex gap-2">
-          <button className="flex-1 rounded-md bg-[#245B45] hover:bg-[#245B45]/90 text-white font-semibold text-xs py-2 shadow-xs transition-colors flex items-center justify-center gap-1.5">
-            <Wrench className="h-3.5 w-3.5" />
-            Create Work Order
-          </button>
-          <button className="rounded-md border border-[#D9E2DC] bg-white hover:bg-[#F3F6F4] text-[#1F2933] font-semibold text-xs px-3 py-2 transition-colors">
-            Acknowledge
-          </button>
-        </div>
-
-        {/* Level 3: Technical Metadata (Subdued at Bottom) */}
-        <div className="border-t border-[#D9E2DC] pt-3 text-[10px] text-[#66736D] space-y-1">
-          <p className="font-bold uppercase tracking-wider text-[#66736D]/80">Technical Metadata</p>
-          <div className="font-mono space-y-0.5">
-            <p>Record ID: {issue.id}</p>
-            <p>Segment Ref: {issue.roadId}</p>
-            <p>Coordinates: {issue.position.lat.toFixed(5)}° N, {issue.position.lng.toFixed(5)}° E</p>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function RoadSegmentDrawer({
-  road,
-  onClose,
-}: {
-  road: AndheriRoad;
-  onClose: () => void;
-}) {
-  const cfg = CONDITION_CONFIG[road.condition];
+  const confidencePct = Math.round(issue.confidence * 100);
 
   return (
     <>
-      {/* Header */}
+      {/* LEVEL 1: Headline & Location */}
       <div className="border-b border-[#D9E2DC] px-4 py-3 bg-[#F8FAF8] flex items-start justify-between">
         <div>
-          <span className="text-[10px] uppercase font-bold tracking-wider text-[#66736D]">
-            Surveyed Road Corridor
-          </span>
-          <h3 className="text-sm font-bold text-[#1F2933] mt-0.5 leading-snug">{road.name}</h3>
-          <p className="text-xs text-[#66736D] capitalize mt-0.5">{road.type} Corridor</p>
+          <h3 className="text-sm font-bold uppercase text-[#1F2933] leading-snug">
+            {issue.title}
+          </h3>
+          <p className="text-xs text-[#66736D] mt-0.5 font-medium">
+            {issue.roadName}, Andheri
+          </p>
+
+          <div className="flex items-center gap-2 mt-1.5">
+            <span
+              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                isCritical
+                  ? "bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]"
+                  : isMajor
+                  ? "bg-[#FFFBEB] text-[#D97706] border border-[#FDE68A]"
+                  : "bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]"
+              }`}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              {issue.severity.toUpperCase()}
+            </span>
+            <span className="text-[11px] text-[#66736D]">
+              {confidencePct}% confidence · {issue.observedBy} bus observations · 14 min ago
+            </span>
+          </div>
         </div>
+
         <button
           onClick={onClose}
           className="rounded p-1 text-[#66736D] hover:bg-[#F3F6F4] hover:text-[#1F2933] transition-colors"
@@ -472,77 +449,212 @@ function RoadSegmentDrawer({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-        {/* Condition Rating */}
-        <div className="rounded-md border border-[#D9E2DC] bg-[#F8FAF8] p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: cfg.color }} />
-              <span className="font-bold text-sm" style={{ color: cfg.color }}>{road.condition}</span>
-              <span className="text-[10px] text-[#66736D]">({cfg.level})</span>
+        {/* LEVEL 2: Evidence Presentation (Section 10: ONE LARGE IMAGE) */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#66736D] mb-1.5">
+            Evidence
+          </p>
+
+          <div className="relative aspect-video w-full rounded border border-[#D9E2DC] overflow-hidden bg-black shadow-xs">
+            <img
+              src={evidenceImg}
+              alt="Road Condition Evidence"
+              className="h-full w-full object-cover"
+            />
+            {/* Clean Realistic Inspection Box (No neon, no excessive HUD) */}
+            <div className="absolute inset-x-8 top-6 bottom-7 border-1.5 border-[#DC2626] bg-[#DC2626]/10 rounded-xs pointer-events-none">
+              <span className="absolute -top-4 left-0 rounded bg-[#DC2626] px-1 py-0.2 text-[8px] font-bold text-white uppercase tracking-wider">
+                {issue.type === "safety_hotspot" ? "Hazard" : issue.type.charAt(0).toUpperCase() + issue.type.slice(1)} · {confidencePct}%
+              </span>
             </div>
-            <span className="font-mono font-bold text-sm text-[#1F2933]">{road.conditionScore} / 100</span>
           </div>
 
-          <div className="h-2 w-full rounded-full bg-[#D9E2DC] overflow-hidden mb-2">
+          <div className="mt-1.5 flex items-center justify-between text-[10px] text-[#66736D] px-1">
+            <span>Observed: 14 min ago</span>
+            <span>Confidence: {confidencePct}%</span>
+            <span>Source: Bus observation</span>
+          </div>
+        </div>
+
+        {/* LEVEL 3: Operational Status & Action */}
+        <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-3 space-y-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[#66736D] font-medium">Status</span>
+            <span className="font-semibold text-[#D97706] bg-[#FFFBEB] border border-[#FDE68A] px-2 py-0.5 rounded text-[11px]">
+              Under Review
+            </span>
+          </div>
+
+          <div className="flex gap-2">
+            <button className="flex-1 rounded bg-[#245B45] hover:bg-[#245B45]/90 text-white font-semibold text-xs py-1.5 shadow-xs transition-colors flex items-center justify-center gap-1.5">
+              <Wrench className="h-3.5 w-3.5" />
+              Open Task
+            </button>
+            <button className="rounded border border-[#D9E2DC] bg-white hover:bg-[#F3F6F4] text-[#1F2933] font-semibold text-xs px-3 py-1.5 transition-colors">
+              View History
+            </button>
+          </div>
+        </div>
+
+        {/* Recommended Remediation Tags */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#66736D] mb-1.5">
+            Recommended Remediation
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {["+ Patching", "+ Surface Dressing", "+ Joint Sealing"].map((tag) => (
+              <span
+                key={tag}
+                className="rounded border border-[#D9E2DC] bg-[#F8FAF8] hover:bg-[#EEF7F1] hover:text-[#245B45] hover:border-[#DDEFE5] px-2 py-0.5 text-[11px] font-medium text-[#1F2933] transition-colors cursor-pointer"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* LEVEL 4: TECHNICAL DETAILS (Collapsed by Default, Section 8) */}
+        <details className="group border-t border-[#D9E2DC] pt-3 text-[11px] text-[#66736D]">
+          <summary className="cursor-pointer font-medium text-[#66736D] hover:text-[#1F2933] flex items-center justify-between py-1 outline-none">
+            <span>Technical details</span>
+            <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-2 rounded bg-[#F8FAF8] border border-[#D9E2DC] p-2.5 font-mono text-[10px] space-y-1 text-[#66736D]">
+            <p>Record: {issue.id}</p>
+            <p>Segment: {issue.roadId}</p>
+            <p>Coordinates: {issue.position.lat.toFixed(5)}° N, {issue.position.lng.toFixed(5)}° E</p>
+          </div>
+        </details>
+      </div>
+    </>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// ROAD DETAIL DRAWER (Section 13)
+// S.V. ROAD / WATCH / 72 / 100 / 2 issues, 12 obs, 4 buses, Last observed 22m
+// Status: Monitored
+// [View Issues], [View History]
+// Technical details ▾ (collapsed by default)
+// -----------------------------------------------------------------------------
+function RoadDetailDrawer({
+  road,
+  onClose,
+}: {
+  road: AndheriRoad;
+  onClose: () => void;
+}) {
+  const cfg = CONDITION_CONFIG[road.condition];
+
+  return (
+    <>
+      {/* Header: S.V. ROAD / WATCH */}
+      <div className="border-b border-[#D9E2DC] px-4 py-3 bg-[#F8FAF8] flex items-start justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-[#1F2933] leading-snug uppercase">
+            {road.name}
+          </h3>
+          <div className="flex items-center gap-2 mt-1">
+            <span
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+              style={{
+                backgroundColor: `${cfg.color}18`,
+                color: cfg.color,
+                border: `1px solid ${cfg.color}40`,
+              }}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.color }} />
+              {road.condition}
+            </span>
+            <span className="text-[11px] text-[#66736D] font-medium capitalize">
+              {road.type} Corridor · {road.lengthKm} km
+            </span>
+          </div>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="rounded p-1 text-[#66736D] hover:bg-[#F3F6F4] hover:text-[#1F2933] transition-colors"
+          title="Close Inspection"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+        {/* Condition Score Meter */}
+        <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-semibold text-[#66736D]">Condition score</span>
+            <span className="font-mono font-bold text-sm text-[#1F2933]">
+              {road.conditionScore} <span className="text-xs font-normal text-[#66736D]">/ 100</span>
+            </span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-[#D9E2DC] overflow-hidden mb-1.5">
             <div
               className="h-full rounded-full"
               style={{ width: `${road.conditionScore}%`, background: cfg.color }}
             />
           </div>
           <p className="text-[10px] text-[#66736D]">
-            Pavement Condition Index calculated from {road.observationCount} sensor readings.
+            {cfg.desc} based on continuous fleet sensor surveys.
           </p>
         </div>
 
-        {/* Operational Attributes */}
-        <div className="rounded-md border border-[#D9E2DC] bg-[#F8FAF8] p-3 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#66736D] mb-1">
-            Segment Attributes
-          </p>
-          <div className="grid grid-cols-2 gap-y-2 gap-x-3 text-xs">
+        {/* Survey Metrics (Section 13) */}
+        <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-3 space-y-2">
+          <div className="grid grid-cols-2 gap-y-2.5 gap-x-3 text-xs">
+            <div>
+              <p className="text-[10px] text-[#66736D]">Issues</p>
+              <p className="font-bold text-[#D97706] font-mono">{road.issueCount}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-[#66736D]">Observations</p>
+              <p className="font-bold text-[#1F2933] font-mono">{road.observationCount}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-[#66736D]">Observed by</p>
+              <p className="font-semibold text-[#1F2933]">{road.surveyedBuses} buses</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-[#66736D]">Last observed</p>
+              <p className="font-semibold text-[#1F2933]">22 min ago</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-[#66736D]">Status</p>
+              <p className="font-semibold text-[#10b981]">Monitored</p>
+            </div>
             <div>
               <p className="text-[10px] text-[#66736D]">Surveyed Length</p>
               <p className="font-semibold text-[#1F2933]">{road.lengthKm} km</p>
             </div>
-            <div>
-              <p className="text-[10px] text-[#66736D]">Identified Defects</p>
-              <p className="font-semibold text-[#D97706]">{road.issueCount} defects</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-[#66736D]">Survey Observations</p>
-              <p className="font-semibold text-[#1F2933]">{road.observationCount} points</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-[#66736D]">Surveyed Fleet</p>
-              <p className="font-semibold text-[#1F2933]">{road.surveyedBuses} buses</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-[#66736D]">Maintenance Priority</p>
-              <p className="font-semibold text-[#1F2933]">{road.priority ?? "Normal"}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-[#66736D]">Operational Status</p>
-              <p className="font-semibold text-[#16A34A]">{road.status}</p>
-            </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="pt-2">
-          <button className="w-full rounded-md bg-[#245B45] hover:bg-[#245B45]/90 text-white font-semibold text-xs py-2 shadow-xs transition-colors">
-            Generate Sector Condition Report
+        {/* Actions (Section 13: [View Issues], [View History]) */}
+        <div className="flex gap-2">
+          <button className="flex-1 rounded bg-[#245B45] hover:bg-[#245B45]/90 text-white font-semibold text-xs py-1.5 shadow-xs transition-colors flex items-center justify-center gap-1.5">
+            <Eye className="h-3.5 w-3.5" />
+            View Issues
+          </button>
+          <button className="rounded border border-[#D9E2DC] bg-white hover:bg-[#F3F6F4] text-[#1F2933] font-semibold text-xs px-3 py-1.5 transition-colors">
+            View History
           </button>
         </div>
 
-        {/* Level 3: Technical Metadata */}
-        <div className="border-t border-[#D9E2DC] pt-3 text-[10px] text-[#66736D] space-y-1">
-          <p className="font-bold uppercase tracking-wider text-[#66736D]/80">Technical Metadata</p>
-          <div className="font-mono space-y-0.5">
-            <p>Segment Ref: {road.id}</p>
-            <p>Corridor Classification: {road.type}</p>
-            <p>Vertex Nodes: {road.coordinates.length} waypoints</p>
+        {/* LEVEL 4: TECHNICAL DETAILS (Collapsed by Default, Section 8) */}
+        <details className="group border-t border-[#D9E2DC] pt-3 text-[11px] text-[#66736D]">
+          <summary className="cursor-pointer font-medium text-[#66736D] hover:text-[#1F2933] flex items-center justify-between py-1 outline-none">
+            <span>Technical details</span>
+            <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-2 rounded bg-[#F8FAF8] border border-[#D9E2DC] p-2.5 font-mono text-[10px] space-y-1 text-[#66736D]">
+            <p>Segment: {road.id}</p>
+            <p>Classification: {road.type}</p>
+            <p>Waypoints: {road.coordinates.length} nodes</p>
           </div>
-        </div>
+        </details>
       </div>
     </>
   );

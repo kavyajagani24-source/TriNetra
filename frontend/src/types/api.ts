@@ -1,5 +1,5 @@
-/**
- * UrbanEye AI — Backend API Contracts & Data Models
+﻿/**
+ * UrbanEye AI â€” Backend API Contracts & Data Models
  *
  * Types mapping directly to the FastAPI responses:
  * Buses, Videos, Processing Jobs, Detections, Trajectories,
@@ -28,7 +28,7 @@ export interface ApiError {
   details?: unknown;
 }
 
-// ── Bus Entity ────────────────────────────────────────────────────────────────
+// â”€â”€ Bus Entity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type BusStatus = "ACTIVE" | "INACTIVE" | "OFFLINE";
 
@@ -56,7 +56,7 @@ export interface BusUpdatePayload {
   status?: BusStatus;
 }
 
-// ── Video Entity ──────────────────────────────────────────────────────────────
+// â”€â”€ Video Entity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type VideoStatus =
   | "UPLOADED"
@@ -82,11 +82,12 @@ export interface BackendVideo {
   bus_id?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+stream_url?: string | null;
   created_at: string;
   updated_at: string;
 }
 
-// ── Processing Job Entity ─────────────────────────────────────────────────────
+// â”€â”€ Processing Job Entity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type ProcessingStatus =
   | "QUEUED"
@@ -135,7 +136,7 @@ export interface VideoProcessingStatusResponse {
   annotated_safety_path?: string | null;
 }
 
-// ── Camera Safety Profile ───────────────────────────────────────────────────
+// â”€â”€ Camera Safety Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface CameraZone {
   zone_id: string;
@@ -159,7 +160,7 @@ export interface CameraSafetyProfile {
   updated_at: string;
 }
 
-// ── Urban Event Entity (Phase 3) ──────────────────────────────────────────────
+// â”€â”€ Urban Event Entity (Phase 3) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type EventCategory =
   | "HAZARD"
@@ -186,6 +187,7 @@ export interface BackendUrbanEvent {
   bbox_y2?: number | null;
   latitude?: number | null;
   longitude?: number | null;
+stream_url?: string | null;
   description: string;
   extra_metadata: Record<string, unknown>;
   created_at: string;
@@ -199,7 +201,7 @@ export interface BackendEventStatistics {
   by_event_type: Record<string, number>;
 }
 
-// ── Traffic Analytics ─────────────────────────────────────────────────────────
+// â”€â”€ Traffic Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface BackendTrafficAnalytics {
   id: string;
@@ -232,7 +234,7 @@ export interface BackendJobResults {
   evidence_images: string[];
 }
 
-// ── Health ────────────────────────────────────────────────────────────────────
+// â”€â”€ Health â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface BackendHealthResponse {
   status: string;

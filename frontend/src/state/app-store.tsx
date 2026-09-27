@@ -2,11 +2,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { BUSES, INCIDENTS, ISSUES, NOTIFICATIONS, OBSERVATIONS } from "@/data/mock";
+import { getBuses } from "@/services/api/buses";
+import { getSafetyRuns, getSafetyRunEvents } from "@/services/api/safety";
 import type {
   AppNotification,
   Bus,
@@ -81,11 +84,36 @@ export type DemoEvent =
 
 const StoreContext = createContext<Store | null>(null);
 
+const STORAGE_KEY_ISSUES = "trinetra_issues_v2";
+const STORAGE_KEY_INCIDENTS = "trinetra_incidents_v2";
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? (parsed as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function AppStoreProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<Role>("executive");
-  const [issues, setIssues] = useState<Issue[]>(ISSUES);
+  const [role, setRole] = useState<Role>("commissioner");
+  
+  // Persistent issues state (Action Center)
+  const [issues, setIssues] = useState<Issue[]>(() =>
+    loadFromStorage<Issue[]>(STORAGE_KEY_ISSUES, ISSUES)
+  );
+
+  // Persistent fleet buses
   const [buses, setBuses] = useState<Bus[]>(BUSES);
-  const [incidents, setIncidents] = useState<IncidentCandidate[]>(INCIDENTS);
+
+  // Persistent incidents state (Incidents page)
+  const [incidents, setIncidents] = useState<IncidentCandidate[]>(() =>
+    loadFromStorage<IncidentCandidate[]>(STORAGE_KEY_INCIDENTS, INCIDENTS)
+  );
+
   const [observations, setObservations] = useState<Observation[]>(OBSERVATIONS);
   const [notifications, setNotifications] = useState<AppNotification[]>(NOTIFICATIONS);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
@@ -102,23 +130,141 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     routes: true,
   });
 
+  // Hydrate live fleet from backend database
+  useEffect(() => {
+    let mounted = true;
+    getBuses({ limit: 50 })
+      .then((res) => {
+        if (!mounted || !res?.data || res.data.length === 0) return;
+        const liveBuses: Bus[] = res.data.map((b, idx) => ({
+          id: b.registration_number || b.bus_number,
+          plate: b.bus_number,
+          route: b.route_number || "Route 302-EXP",
+          status: (b.status?.toLowerCase() === "active" ? "active" : "offline") as Bus["status"],
+          driver: `Driver ${b.registration_number || idx + 1}`,
+          depot: "Andheri Depot",
+          camerasOnline: 2,
+          gps: "active" as const,
+          bandwidth: "high" as const,
+          lastPacket: "1s ago",
+          speedKph: 28,
+          todayDistanceKm: 42.5,
+          potholesFoundToday: 3,
+        }));
+        
+        setBuses((prev) => {
+          const map = new Map<string, Bus>();
+          // live buses take precedence
+          liveBuses.forEach((b) => map.set(b.id, b));
+          prev.forEach((b) => {
+            if (!map.has(b.id)) map.set(b.id, b);
+          });
+          return Array.from(map.values());
+        });
+      })
+      .catch(() => {
+        // preserve current buses
+      });
+
+    // Hydrate real safety incidents from backend database
+    getSafetyRuns({ limit: 10 })
+      .then(async (runsRes) => {
+        if (!mounted || !runsRes?.data || runsRes.data.length === 0) return;
+        const recentRun = runsRes.data[0];
+        if (!recentRun) return;
+
+        const eventsRes = await getSafetyRunEvents(recentRun.id, { limit: 20 }).catch(() => null);
+        if (!mounted || !eventsRes?.data || eventsRes.data.length === 0) return;
+
+        const realIncidents: IncidentCandidate[] = eventsRes.data
+          .filter((e) => e.risk_level === "high" || e.risk_level === "medium")
+          .map((e) => ({
+            id: `INC-SAFE-${e.source_event_id.replace("SAFE_", "")}`,
+            type: e.event_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            confidence: e.risk_confidence || 0.88,
+            at: e.event_timestamp ? new Date(e.event_timestamp).toLocaleTimeString() : "Recent",
+            location: e.in_school_zone ? "Andheri School Zone" : "SV Road Crossing",
+            position: {
+              lat: e.latitude || 19.1136,
+              lng: e.longitude || 72.8697,
+            },
+            vehicleType: e.object_type || "Bus Proximity",
+            trackId: String(e.track_id ?? e.frame_index),
+            plateCandidate: "Not Identified",
+            plateConfidence: 0.0,
+            supportingFrames: e.duration_frames || 40,
+            status: "human_review",
+            evidence: {
+              src: e.evidence_frames?.[0] || "",
+              timestamp: `${Math.floor(e.frame_index / 30)}s`,
+              frameNumber: e.frame_index,
+              labels: [e.event_type, `${Math.round((e.risk_confidence || 0.88) * 100)}%`],
+            },
+          }));
+
+        if (realIncidents.length > 0) {
+          setIncidents((prev) => {
+            const map = new Map<string, IncidentCandidate>();
+            realIncidents.forEach((inc) => map.set(inc.id, inc));
+            prev.forEach((inc) => {
+              if (!map.has(inc.id)) map.set(inc.id, inc);
+            });
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem(STORAGE_KEY_INCIDENTS, JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const toggleLayer = useCallback((k: keyof LayerState) => {
     setLayers((prev) => ({ ...prev, [k]: !prev[k] }));
   }, []);
 
+  // Persistent issue status update (Action Center)
   const setStatus = useCallback((id: string, status: IssueStatus) => {
-    setIssues((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
+    setIssues((prev) => {
+      const next = prev.map((i) => (i.id === id ? { ...i, status } : i));
+      try {
+        localStorage.setItem(STORAGE_KEY_ISSUES, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   }, []);
 
+  // Persistent issue assignment update (Action Center)
   const assignIssue = useCallback((id: string, to: string) => {
-    setIssues((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, assignedTo: to, status: "assigned" } : i)),
-    );
+    setIssues((prev) => {
+      const next = prev.map((i) =>
+        i.id === id ? { ...i, assignedTo: to, status: "assigned" as IssueStatus } : i
+      );
+      try {
+        localStorage.setItem(STORAGE_KEY_ISSUES, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   }, []);
 
-  const setIncidentStatus = useCallback((id: string, status: IncidentCandidate["status"]) => {
-    setIncidents((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
-  }, []);
+  // Persistent incident status update (Incidents page)
+  const setIncidentStatus = useCallback(
+    (id: string, status: IncidentCandidate["status"]) => {
+      setIncidents((prev) => {
+        const next = prev.map((i) => (i.id === id ? { ...i, status } : i));
+        try {
+          localStorage.setItem(STORAGE_KEY_INCIDENTS, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    },
+    []
+  );
 
   const markAllRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
@@ -162,15 +308,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       }
 
       if (kind === "verification") {
-        const candidate = issues.find((i) => i.status === "under_repair") ??
+        const candidate =
+          issues.find((i) => i.status === "under_repair") ??
           issues.find((i) => i.status === "assigned");
         if (candidate) {
-          setIssues((prev) =>
-            prev.map((i) =>
+          setIssues((prev) => {
+            const next = prev.map((i) =>
               i.id === candidate.id
                 ? {
                     ...i,
-                    status: "verification_pending",
+                    status: "verification_pending" as IssueStatus,
                     verification: {
                       confidence: 0.94,
                       passes: 2,
@@ -178,9 +325,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
                         "Next observation strongly indicates the defect has been repaired.",
                     },
                   }
-                : i,
-            ),
-          );
+                : i
+            );
+            try {
+              localStorage.setItem(STORAGE_KEY_ISSUES, JSON.stringify(next));
+            } catch {}
+            return next;
+          });
           pushNotification({
             id: `N-${stamp}`,
             title: "Verification candidate ready",
@@ -241,7 +392,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       };
 
       const t = templates[kind];
-      const base = issues[0]!;
+      const base = issues[0] || ({} as Issue);
       const id = `P-${220 + issues.length}`;
       const newIssue: Issue = {
         ...base,
@@ -262,7 +413,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       delete newIssue.contractorId;
       delete newIssue.verification;
 
-      setIssues((prev) => [newIssue, ...prev]);
+      setIssues((prev) => {
+        const next = [newIssue, ...prev];
+        try {
+          localStorage.setItem(STORAGE_KEY_ISSUES, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
       setObservations((prev) => [
         {
           id: `O-${stamp}`,
@@ -284,7 +441,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       });
       return id;
     },
-    [issues, pushNotification],
+    [issues, pushNotification]
   );
 
   const value = useMemo<Store>(
@@ -327,7 +484,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       setIncidentStatus,
       markAllRead,
       demoEvent,
-    ],
+    ]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

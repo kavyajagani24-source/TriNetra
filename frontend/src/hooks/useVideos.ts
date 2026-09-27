@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { deleteVideo, getVideos, startProcessing, uploadVideo } from "@/services/api/videos";
-import { MOCK_VIDEOS } from "@/mocks/videos";
 import { useAppStore } from "@/store/appStore";
 import type { BackendVideo } from "@/types/api";
 
 export function useVideos(busIdFilter?: string) {
-  const { demoMode, setBackendOnline } = useAppStore();
+  const { setBackendOnline } = useAppStore();
   const [videos, setVideos] = useState<BackendVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -14,33 +13,21 @@ export function useVideos(busIdFilter?: string) {
     setLoading(true);
     setError(null);
 
-    if (demoMode) {
-      setTimeout(() => {
-        const filtered = busIdFilter
-          ? MOCK_VIDEOS.filter((v) => v.bus_id === busIdFilter)
-          : MOCK_VIDEOS;
-        setVideos(filtered);
-        setLoading(false);
-      }, 150);
-      return;
-    }
-
     try {
       const res = await getVideos({ bus_id: busIdFilter, limit: 100 });
-      setVideos(res.data);
+      setVideos(res.data || []);
       setBackendOnline(true);
     } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message || "Failed to load videos from backend.";
+      const msg =
+        (err as { message?: string })?.message ||
+        "Failed to load videos from backend database.";
       setError(msg);
       setBackendOnline(false);
-      const filtered = busIdFilter
-        ? MOCK_VIDEOS.filter((v) => v.bus_id === busIdFilter)
-        : MOCK_VIDEOS;
-      setVideos(filtered);
+      // No silent mock fallback on error — report real error
     } finally {
       setLoading(false);
     }
-  }, [demoMode, busIdFilter, setBackendOnline]);
+  }, [busIdFilter, setBackendOnline]);
 
   useEffect(() => {
     fetchVideos();
@@ -54,60 +41,45 @@ export function useVideos(busIdFilter?: string) {
       longitude?: number;
       onUploadProgress?: (progressEvent: { loaded: number; total?: number }) => void;
     }
-  ) => {
-    if (demoMode) {
-      const mockVid: BackendVideo = {
-        id: `demo-vid-${Date.now()}`,
-        filename: file.name,
-        original_filename: file.name,
-        file_path: `storage/uploads/${file.name}`,
-        file_size: file.size,
-        format: `.${file.name.split(".").pop() || "mp4"}`,
-        fps: 30.0,
-        frame_count: 600,
-        duration: 20.0,
-        width: 1920,
-        height: 1080,
-        status: "UPLOADED",
-        bus_id: options?.bus_id || null,
-        latitude: options?.latitude || null,
-        longitude: options?.longitude || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setVideos((prev) => [mockVid, ...prev]);
-      return mockVid;
+  ): Promise<BackendVideo> => {
+    setError(null);
+    try {
+      const uploaded = await uploadVideo(file, options);
+      await fetchVideos();
+      return uploaded;
+    } catch (err: unknown) {
+      const msg =
+        (err as { message?: string })?.message || "Failed to upload video to backend storage.";
+      setError(msg);
+      throw err;
     }
-    const uploaded = await uploadVideo(file, options);
-    await fetchVideos();
-    return uploaded;
   };
 
   const handleStartProcessing = async (videoId: string) => {
-    if (demoMode) {
-      setVideos((prev) =>
-        prev.map((v) => (v.id === videoId ? { ...v, status: "PROCESSING" } : v))
-      );
-      // Simulate completion after 3 seconds in demo mode
-      setTimeout(() => {
-        setVideos((prev) =>
-          prev.map((v) => (v.id === videoId ? { ...v, status: "READY" } : v))
-        );
-      }, 3000);
-      return { job_id: `demo-job-${Date.now()}`, video_id: videoId, status: "PROCESSING", progress_percentage: 0 };
+    setError(null);
+    try {
+      const result = await startProcessing(videoId);
+      await fetchVideos();
+      return result;
+    } catch (err: unknown) {
+      const msg =
+        (err as { message?: string })?.message || "Failed to trigger processing job on backend.";
+      setError(msg);
+      throw err;
     }
-    const result = await startProcessing(videoId);
-    await fetchVideos();
-    return result;
   };
 
   const handleDelete = async (id: string) => {
-    if (demoMode) {
-      setVideos((prev) => prev.filter((v) => v.id !== id));
-      return;
+    setError(null);
+    try {
+      await deleteVideo(id);
+      await fetchVideos();
+    } catch (err: unknown) {
+      const msg =
+        (err as { message?: string })?.message || "Failed to delete video from backend.";
+      setError(msg);
+      throw err;
     }
-    await deleteVideo(id);
-    await fetchVideos();
   };
 
   return {

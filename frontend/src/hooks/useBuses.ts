@@ -36,11 +36,6 @@ export function useBuses(statusFilter?: string) {
       const msg = (err as { message?: string })?.message || "Failed to load buses from backend.";
       setError(msg);
       setBackendOnline(false);
-      // Fallback to mock data on backend failure
-      const filtered = statusFilter
-        ? MOCK_BUSES.filter((b) => b.status === statusFilter)
-        : MOCK_BUSES;
-      setBuses(filtered);
     } finally {
       setLoading(false);
     }

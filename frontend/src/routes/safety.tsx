@@ -4,9 +4,9 @@ import { SafetyPage } from "@/pages/SafetyPage";
 export const Route = createFileRoute("/safety")({
   head: () => ({
     meta: [
-      { title: "Safety & Incident Intelligence | UrbanPulse" },
+      { title: "Safety & Incident Intelligence | TRINETRA" },
       { name: "description", content: "Vulnerable road user risk zones and incident candidates awaiting human review." },
-      { property: "og:title", content: "Safety & Incident Intelligence | UrbanPulse" },
+      { property: "og:title", content: "Safety & Incident Intelligence | TRINETRA" },
       { property: "og:description", content: "Vulnerable road user risk zones and incident candidates awaiting human review." },
     ],
   }),

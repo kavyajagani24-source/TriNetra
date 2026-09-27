@@ -71,11 +71,11 @@ export interface AndheriBus {
   status: "active" | "idle" | "offline";
 }
 
-export const CONDITION_CONFIG: Record<RoadCondition, { color: string; label: string; level: string; lineWidth: number }> = {
-  HEALTHY: { color: "#10b981", label: "Healthy", level: "Level 0", lineWidth: 3.5 },
-  WATCH: { color: "#eab308", label: "Watch", level: "Level 1", lineWidth: 3.5 },
-  POOR: { color: "#f97316", label: "Poor", level: "Level 2", lineWidth: 4.0 },
-  CRITICAL: { color: "#ef4444", label: "Critical", level: "Level 3", lineWidth: 4.5 },
+export const CONDITION_CONFIG: Record<RoadCondition, { color: string; label: string; desc: string; lineWidth: number }> = {
+  HEALTHY: { color: "#10b981", label: "Healthy", desc: "Good pavement", lineWidth: 3.5 },
+  WATCH: { color: "#eab308", label: "Watch", desc: "Surface wear", lineWidth: 3.5 },
+  POOR: { color: "#f97316", label: "Poor", desc: "Deteriorated", lineWidth: 4.0 },
+  CRITICAL: { color: "#ef4444", label: "Critical", desc: "Immediate attention", lineWidth: 4.5 },
 };
 
 export const SEVERITY_MARKER_COLOR = {

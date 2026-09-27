@@ -4,9 +4,9 @@ import { VerificationPage } from "@/pages/VerificationPage";
 export const Route = createFileRoute("/verification")({
   head: () => ({
     meta: [
-      { title: "Verification Center | UrbanPulse" },
+      { title: "Verification Center | TRINETRA" },
       { name: "description", content: "Re-observation based verification of completed repairs with human sign-off." },
-      { property: "og:title", content: "Verification Center | UrbanPulse" },
+      { property: "og:title", content: "Verification Center | TRINETRA" },
       { property: "og:description", content: "Re-observation based verification of completed repairs with human sign-off." },
     ],
   }),

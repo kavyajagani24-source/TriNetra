@@ -46,7 +46,7 @@ export function IncidentDetailDrawer({ incident, onClose }: IncidentDetailDrawer
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold tracking-tight">{incident.type}</h2>
-                <span className="font-mono text-xs text-slate-300">({incident.id})</span>
+                <span className="font-data text-xs text-slate-300">({incident.id})</span>
               </div>
               <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
                 <MapPin className="h-3.5 w-3.5 text-slate-400" />
@@ -123,7 +123,7 @@ export function IncidentDetailDrawer({ incident, onClose }: IncidentDetailDrawer
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">ANPR Plate Candidate</span>
-                <span className="font-mono font-bold text-blue-700">{incident.plateCandidate || "MH01AB1234"}</span>
+                <span className="font-data font-bold text-blue-700">{incident.plateCandidate || "MH01AB1234"}</span>
                 {incident.plateConfidence && (
                   <span className="text-[10px] text-slate-500 block mt-0.5">
                     ({(incident.plateConfidence * 100).toFixed(0)}% OCR match)
@@ -132,7 +132,7 @@ export function IncidentDetailDrawer({ incident, onClose }: IncidentDetailDrawer
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Tracking ID</span>
-                <span className="font-mono text-slate-800">{incident.trackId}</span>
+                <span className="font-data text-slate-800">{incident.trackId}</span>
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Supporting Keyframes</span>
@@ -140,7 +140,7 @@ export function IncidentDetailDrawer({ incident, onClose }: IncidentDetailDrawer
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Ingesting Bus</span>
-                <span className="font-mono text-slate-800">{incident.evidence.busId}</span>
+                <span className="font-data text-slate-800">{incident.evidence.busId}</span>
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Timestamp</span>

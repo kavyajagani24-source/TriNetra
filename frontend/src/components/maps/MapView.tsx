@@ -12,12 +12,17 @@ import {
   SEVERITY_MARKER_COLOR,
   type AndheriRoad,
   type AndheriIssue,
+  type RoadCondition,
 } from "@/data/andheri";
 import type { Bus, Issue } from "@/types";
 import type { LayerState } from "@/state/app-store";
 
 export interface AndheriMapProps {
+  showRoadCondition?: boolean | undefined;
+  showIssues?: boolean | undefined;
   showFleet?: boolean | undefined;
+  showObservations?: boolean | undefined;
+  conditionFilter?: "ALL" | "CRITICAL" | "POOR_CRITICAL" | "WATCH_POOR" | undefined;
   selectedRoadId?: string | null | undefined;
   selectedIssueId?: string | null | undefined;
   onSelectRoad?: ((road: AndheriRoad) => void) | undefined;
@@ -26,7 +31,11 @@ export interface AndheriMapProps {
 }
 
 export function AndheriIntelligenceMap({
+  showRoadCondition = true,
+  showIssues = true,
   showFleet = false,
+  showObservations = false,
+  conditionFilter = "ALL",
   selectedRoadId,
   selectedIssueId,
   onSelectRoad,
@@ -65,12 +74,20 @@ export function AndheriIntelligenceMap({
 
     mapRef.current = map;
 
+    // Standardized GIS controls (styled cleanly via CSS)
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+    map.addControl(
+      new mapboxgl.NavigationControl({
+        showCompass: true,
+        showZoom: true,
+        visualizePitch: true,
+      }),
+      "bottom-right",
+    );
 
     map.on("load", () => {
       // -------------------------------------------------------------
-      // LAYER A: BASE ROAD NETWORK (Real OSM Street Grid)
+      // LAYER A: MUTED BASE OSM ROADS
       // -------------------------------------------------------------
       map.addSource("andheri-base-roads", {
         type: "geojson",
@@ -86,15 +103,15 @@ export function AndheriIntelligenceMap({
           "line-cap": "round",
         },
         paint: {
-          "line-color": "#334155",
+          "line-color": "#283548",
           "line-width": [
             "interpolate", ["linear"], ["zoom"],
             11, 0.8,
-            13, 1.4,
-            15, 2.2,
-            17, 3.5,
+            13, 1.3,
+            15, 2.0,
+            17, 3.2,
           ],
-          "line-opacity": 0.65,
+          "line-opacity": 0.6,
         },
       });
 
@@ -106,7 +123,7 @@ export function AndheriIntelligenceMap({
         data: "/andheri-intelligence-roads.geojson",
       });
 
-      // Subtle underglow / depth casing
+      // Subtle underglow casing
       map.addLayer({
         id: "layer-road-casing",
         type: "line",
@@ -116,17 +133,17 @@ export function AndheriIntelligenceMap({
           "line-color": ["get", "color"],
           "line-width": [
             "interpolate", ["linear"], ["zoom"],
-            11, 2.2,
-            13, 3.8,
-            15, 5.5,
-            17, 8.0,
+            11, 2.0,
+            13, 3.5,
+            15, 5.0,
+            17, 7.5,
           ],
-          "line-opacity": 0.25,
-          "line-blur": 2,
+          "line-opacity": 0.22,
+          "line-blur": 1.5,
         },
       });
 
-      // Main intelligence line
+      // Main condition line
       map.addLayer({
         id: "layer-road-condition",
         type: "line",
@@ -136,10 +153,10 @@ export function AndheriIntelligenceMap({
           "line-color": ["get", "color"],
           "line-width": [
             "interpolate", ["linear"], ["zoom"],
-            11, 1.6,
-            13, 2.8,
-            15, 4.2,
-            17, 6.0,
+            11, 1.5,
+            13, 2.6,
+            15, 4.0,
+            17, 5.5,
           ],
           "line-opacity": 0.95,
         },
@@ -156,18 +173,17 @@ export function AndheriIntelligenceMap({
           "line-color": "#ffffff",
           "line-width": [
             "interpolate", ["linear"], ["zoom"],
-            11, 4.0,
-            13, 6.0,
-            15, 8.5,
-            17, 11.0,
+            11, 3.8,
+            13, 5.5,
+            15, 8.0,
+            17, 10.5,
           ],
           "line-opacity": 0.9,
         },
       });
 
       // -------------------------------------------------------------
-      // LAYER C: SURVEY OBSERVATION POINTS (Zoom >= 13.5)
-      // Centerline observation dots (RoadMetrics style)
+      // LAYER C: SURVEY OBSERVATION POINTS (Centerline dots)
       // -------------------------------------------------------------
       map.addSource("andheri-observations", {
         type: "geojson",
@@ -179,27 +195,31 @@ export function AndheriIntelligenceMap({
         type: "circle",
         source: "andheri-observations",
         minzoom: 13.5,
+        layout: {
+          visibility: showObservations ? "visible" : "none",
+        },
         paint: {
           "circle-radius": [
             "interpolate", ["linear"], ["zoom"],
-            13.5, 1.8,
-            15, 2.6,
-            17, 4.2,
+            13.5, 1.5,
+            15, 2.4,
+            17, 3.8,
           ],
           "circle-color": ["get", "color"],
-          "circle-opacity": 0.9,
-          "circle-stroke-width": 1.0,
+          "circle-opacity": 0.85,
+          "circle-stroke-width": 0.8,
           "circle-stroke-color": "#0a0e17",
         },
       });
 
       // -------------------------------------------------------------
-      // HOVER & CLICK TOOLTIPS (Clean GIS Card Style)
+      // HOVER & CLICK TOOLTIPS (Tiny Professional GIS Tooltip)
+      // Section 16: Road Name, Condition, Condition score, issues, observations
       // -------------------------------------------------------------
       const popup = new mapboxgl.Popup({
         closeButton: false,
         closeOnClick: false,
-        offset: 14,
+        offset: 12,
         className: "trinetra-road-popup",
       });
 
@@ -212,10 +232,11 @@ export function AndheriIntelligenceMap({
         if (roadId === hoveredRoadRef.current) return;
         hoveredRoadRef.current = roadId;
 
-        const cond = String(p["condition"] ?? "HEALTHY");
-        const condCfg = CONDITION_CONFIG[cond as keyof typeof CONDITION_CONFIG];
-        const condColor = condCfg?.color ?? "#16A34A";
-        const roadName = String(p["name"] ?? "Surveyed Street");
+        const cond = String(p["condition"] ?? "HEALTHY") as RoadCondition;
+        const condCfg = CONDITION_CONFIG[cond];
+        const condColor = condCfg?.color ?? "#10b981";
+        const condLabel = condCfg?.label ?? "Healthy";
+        const roadName = String(p["name"] ?? "Surveyed Road");
         const condScore = Number(p["conditionScore"] ?? 80);
         const issueCount = Number(p["issueCount"] ?? 0);
         const obsCount = Number(p["observationCount"] ?? 0);
@@ -223,27 +244,16 @@ export function AndheriIntelligenceMap({
         popup
           .setLngLat(e.lngLat)
           .setHTML(`
-            <div style="
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              font-size: 12px;
-              color: #1F2933;
-              padding: 2px 1px;
-              min-width: 185px;
-            ">
-              <div style="font-weight:600; font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:#66736D; margin-bottom:2px;">
-                Surveyed Road Corridor
-              </div>
-              <div style="font-weight:700; font-size:13px; color:#1F2933; margin-bottom:5px; line-height:1.2;">
+            <div style="font-family: Manrope, -apple-system, sans-serif; font-size: 11px; color: #1F2933; min-width: 135px; line-height: 1.35; padding: 1px;">
+              <div style="font-weight: 700; font-size: 12px; color: #1F2933; margin-bottom: 2px;">
                 ${roadName}
               </div>
-              <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
-                <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:${condColor};"></span>
-                <span style="color:${condColor}; font-weight:700; text-transform:uppercase; font-size:11px;">${cond}</span>
-                <span style="color:#66736D; font-size:11px;">(Score ${condScore}/100)</span>
+              <div style="font-size: 11px; margin-bottom: 3px;">
+                <span style="color: ${condColor}; font-family: 'DM Sans', sans-serif; font-weight: 700;">${condLabel.toUpperCase()}</span>
+                <span style="color: #66736D;"> · ${condScore}</span>
               </div>
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:11px; color:#66736D; border-top: 1px solid #D9E2DC; padding-top:5px;">
-                <div><span style="color:#1F2933; font-weight:600;">${issueCount}</span> Defects</div>
-                <div><span style="color:#1F2933; font-weight:600;">${obsCount}</span> Points</div>
+              <div style="font-size: 10px; color: #66736D; border-top: 1px solid #D9E2DC; padding-top: 3px; font-family: 'DM Sans', sans-serif;">
+                ${issueCount} ${issueCount === 1 ? "issue" : "issues"} · ${obsCount} observations
               </div>
             </div>
           `)
@@ -280,7 +290,49 @@ export function AndheriIntelligenceMap({
     };
   }, []);
 
-  // Render Road-Aligned Issue Markers (Layer D)
+  // Update Road Condition Visibility & Filters
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+
+    const visibility = showRoadCondition ? "visible" : "none";
+    if (map.getLayer("layer-road-casing")) {
+      map.setLayoutProperty("layer-road-casing", "visibility", visibility);
+    }
+    if (map.getLayer("layer-road-condition")) {
+      map.setLayoutProperty("layer-road-condition", "visibility", visibility);
+
+      if (conditionFilter === "CRITICAL") {
+        map.setFilter("layer-road-condition", ["==", ["get", "condition"], "CRITICAL"]);
+        map.setFilter("layer-road-casing", ["==", ["get", "condition"], "CRITICAL"]);
+      } else if (conditionFilter === "POOR_CRITICAL") {
+        map.setFilter("layer-road-condition", ["in", ["get", "condition"], ["literal", ["CRITICAL", "POOR"]]]);
+        map.setFilter("layer-road-casing", ["in", ["get", "condition"], ["literal", ["CRITICAL", "POOR"]]]);
+      } else if (conditionFilter === "WATCH_POOR") {
+        map.setFilter("layer-road-condition", ["in", ["get", "condition"], ["literal", ["WATCH", "POOR"]]]);
+        map.setFilter("layer-road-casing", ["in", ["get", "condition"], ["literal", ["WATCH", "POOR"]]]);
+      } else {
+        map.setFilter("layer-road-condition", null);
+        map.setFilter("layer-road-casing", null);
+      }
+    }
+  }, [showRoadCondition, conditionFilter]);
+
+  // Update Observation Points Visibility
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    if (map.getLayer("layer-obs-dots")) {
+      map.setLayoutProperty(
+        "layer-obs-dots",
+        "visibility",
+        showObservations ? "visible" : "none",
+      );
+    }
+  }, [showObservations]);
+
+  // Render Clean Road-Aligned Issue Markers (Layer D)
+  // SECTIONS 5 & 6: Shape + semantic color ONLY. No P1/P2/P3 text labels.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -289,45 +341,46 @@ export function AndheriIntelligenceMap({
       issueMarkersRef.current.forEach((m) => m.remove());
       issueMarkersRef.current = [];
 
+      if (!showIssues) return;
+
       ANDHERI_ISSUES.forEach((issue) => {
         const isSelected = issue.id === selectedIssueId;
         const color = SEVERITY_MARKER_COLOR[issue.severity];
-        const isP1 = issue.priority === "P1";
-        const size = isSelected ? 26 : isP1 ? 22 : 18;
+        const isCritical = issue.severity === "critical";
+        const isMajor = issue.severity === "major";
+        const size = isSelected ? 24 : isCritical ? 20 : isMajor ? 17 : 15;
 
         const el = document.createElement("div");
+        el.className = "trinetra-issue-marker";
         el.style.cssText = `
           width: ${size}px;
           height: ${size}px;
-          border-radius: ${isP1 ? "4px" : "50%"};
-          background: ${color};
-          border: ${isSelected ? "3px solid #ffffff" : isP1 ? "2px solid rgba(255,255,255,0.9)" : "2px solid rgba(15,23,42,0.9)"};
           cursor: pointer;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.35);
           transition: transform 0.15s ease;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
-          font-size: ${isP1 ? "9px" : "8px"};
-          font-weight: 800;
-          user-select: none;
+          transform-origin: center center;
+          ${isSelected ? "filter: drop-shadow(0 0 4px #FFFFFF);" : ""}
         `;
-        if (isP1) {
-          el.textContent = "P1";
-        } else if (issue.severity === "major") {
-          el.innerHTML = "&#9888;";
-        }
 
-        el.title = `${issue.title} on ${issue.roadName}`;
+        // Clean SVG warning triangle (No P1/P2/P3 text!)
+        el.innerHTML = `
+          <svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${color}" stroke="#FFFFFF" stroke-width="${isSelected ? 2.2 : 1.4}" stroke-linejoin="round" style="display:block; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.35));">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="12" cy="17" r="1.2" fill="#FFFFFF"/>
+          </svg>
+        `;
+
+        el.title = `${issue.title} • ${issue.roadName}`;
 
         el.addEventListener("mouseenter", () => {
-          el.style.transform = "scale(1.25)";
+          el.style.transform = "scale(1.22)";
         });
         el.addEventListener("mouseleave", () => {
-          el.style.transform = "scale(1.0)";
+          el.style.transform = isSelected ? "scale(1.15)" : "scale(1.0)";
         });
-
         el.addEventListener("click", (e) => {
           e.stopPropagation();
           if (onSelectIssueRef.current) onSelectIssueRef.current(issue);
@@ -342,9 +395,10 @@ export function AndheriIntelligenceMap({
 
     if (map.isStyleLoaded()) renderMarkers();
     else map.once("load", renderMarkers);
-  }, [selectedIssueId]);
+  }, [showIssues, selectedIssueId]);
 
-  // Render Fleet Bus Markers (Layer E)
+  // Render Subtle Fleet Bus Markers (Layer E)
+  // SECTION 22: Subtle vehicle markers, secondary to road intelligence.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -368,23 +422,23 @@ export function AndheriIntelligenceMap({
         const isOnline = bus.status === "active";
         const bgColor = isOnline ? "#2563EB" : "#64748B";
 
-        if (!busMarkersRef.current.has(bus.id)) {
+        if (busMarkersRef.current.has(bus.id)) {
+          busMarkersRef.current.get(bus.id)!.setLngLat([bus.position.lng, bus.position.lat]);
+        } else {
           const el = document.createElement("div");
           el.style.cssText = `
-            width: 18px;
-            height: 18px;
-            border-radius: 4px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
             background: ${bgColor};
-            border: 2px solid rgba(255,255,255,0.9);
+            border: 1.5px solid #FFFFFF;
             cursor: pointer;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 10px;
           `;
-          el.innerHTML = "&#128652;";
-          el.title = `${bus.id} - ${bus.routeName} (${bus.speedKph} km/h)`;
+          el.title = `${bus.id} • ${bus.routeName} (${bus.speedKph} km/h)`;
 
           const marker = new mapboxgl.Marker({ element: el, anchor: "center" })
             .setLngLat([bus.position.lng, bus.position.lat])
@@ -441,43 +495,66 @@ export function MapView({ className }: MapViewProps) {
   return <AndheriIntelligenceMap className={className} />;
 }
 
-// MapLegend component: Clean White GIS card
+// MapLegend component: ONE Authoritative Compact Legend (Section 11)
 export function MapLegend({ className }: { className?: string | undefined }) {
   return (
-    <div className={cn("rounded-lg border border-[#D9E2DC] bg-white/98 backdrop-blur-xs px-3.5 py-3 shadow-md text-[#1F2933] select-none", className)}>
-      <p className="mb-2 text-[9px] uppercase font-bold tracking-wider text-[#66736D]">
-        Road Condition Scale
+    <div className={cn("rounded-md border border-[#D9E2DC] bg-white/95 backdrop-blur-xs p-2.5 shadow-sm text-[#1F2933] select-none text-xs", className)}>
+      {/* ROAD CONDITION */}
+      <p className="mb-1 font-ui text-[9px] uppercase font-bold tracking-wider text-[#66736D]">
+        Road Condition
       </p>
-      <ul className="flex flex-col gap-1.5 mb-2.5">
-        {(Object.entries(CONDITION_CONFIG) as [string, { color: string; label: string; level: string }][]).map(([, cfg]) => (
-          <li key={cfg.label} className="flex items-center gap-2 text-[11px] font-medium text-[#1F2933]">
-            <span className="h-2 w-4 rounded-full shrink-0" style={{ background: cfg.color }} />
-            <span>{cfg.label}</span>
-            <span className="text-[10px] text-[#66736D] ml-auto font-mono">{cfg.level}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="mb-2 text-[9px] uppercase font-bold tracking-wider text-[#66736D] border-t border-[#D9E2DC] pt-2">
-        Inspection Indicators
-      </p>
-      <ul className="flex flex-col gap-1.5">
-        <li className="flex items-center gap-2 text-[11px] font-medium text-[#1F2933]">
-          <span className="h-3 w-3 rounded-xs bg-[#DC2626] shrink-0 flex items-center justify-center text-[7px] font-bold text-white">P1</span>
-          Priority Defect
+      <ul className="grid grid-cols-2 gap-x-3 gap-y-1 mb-2">
+        <li className="flex items-center gap-1.5 font-ui text-[11px] font-medium text-[#1F2933]">
+          <span className="h-2 w-2 rounded-full shrink-0 bg-[#10b981]" />
+          <span>Healthy</span>
         </li>
-        <li className="flex items-center gap-2 text-[11px] font-medium text-[#1F2933]">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#D97706] shrink-0" />
-          Major Defect
+        <li className="flex items-center gap-1.5 font-ui text-[11px] font-medium text-[#1F2933]">
+          <span className="h-2 w-2 rounded-full shrink-0 bg-[#eab308]" />
+          <span>Watch</span>
         </li>
-        <li className="flex items-center gap-2 text-[11px] font-medium text-[#1F2933]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#10b981] shrink-0" />
-          Survey Centerline Point
+        <li className="flex items-center gap-1.5 font-ui text-[11px] font-medium text-[#1F2933]">
+          <span className="h-2 w-2 rounded-full shrink-0 bg-[#f97316]" />
+          <span>Poor</span>
         </li>
-        <li className="flex items-center gap-2 text-[11px] font-medium text-[#1F2933]">
-          <span className="h-2.5 w-2.5 rounded-xs bg-[#2563EB] shrink-0 flex items-center justify-center text-[8px] text-white">&#128652;</span>
-          Fleet Survey Vehicle
+        <li className="flex items-center gap-1.5 font-ui text-[11px] font-medium text-[#1F2933]">
+          <span className="h-2 w-2 rounded-full shrink-0 bg-[#ef4444]" />
+          <span>Critical</span>
         </li>
       </ul>
+
+      {/* ISSUES */}
+      <p className="mb-1 font-ui text-[9px] uppercase font-bold tracking-wider text-[#66736D] border-t border-[#D9E2DC] pt-1.5">
+        Issues
+      </p>
+      <ul className="flex items-center gap-3 mb-2">
+        <li className="flex items-center gap-1 font-ui text-[11px] font-medium text-[#1F2933]">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="#ef4444" stroke="#FFFFFF" stroke-width="1.2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          </svg>
+          <span>Critical</span>
+        </li>
+        <li className="flex items-center gap-1 font-ui text-[11px] font-medium text-[#1F2933]">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="#f97316" stroke="#FFFFFF" stroke-width="1.2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          </svg>
+          <span>Major</span>
+        </li>
+        <li className="flex items-center gap-1 font-ui text-[11px] font-medium text-[#1F2933]">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="#eab308" stroke="#FFFFFF" stroke-width="1.2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          </svg>
+          <span>Moderate</span>
+        </li>
+      </ul>
+
+      {/* FLEET */}
+      <p className="mb-1 font-ui text-[9px] uppercase font-bold tracking-wider text-[#66736D] border-t border-[#D9E2DC] pt-1.5">
+        Fleet
+      </p>
+      <div className="flex items-center gap-1.5 font-ui text-[11px] font-medium text-[#1F2933]">
+        <span className="h-2.5 w-2.5 rounded-full bg-[#2563EB] border border-white shrink-0" />
+        <span>Fleet Vehicle</span>
+      </div>
     </div>
   );
 }

@@ -72,7 +72,7 @@ export function FleetPage() {
                 <BusIcon className="h-4 w-4" />
               </span>
             </div>
-            <div className="mt-2 text-2xl font-extrabold text-slate-900">{totalBuses}</div>
+            <div className="mt-2 font-data text-2xl font-bold text-slate-900">{totalBuses}</div>
             <p className="mt-1 text-[11px] text-slate-500">Registered fleet units</p>
           </div>
 
@@ -83,7 +83,7 @@ export function FleetPage() {
                 <Radio className="h-4 w-4" />
               </span>
             </div>
-            <div className="mt-2 text-2xl font-extrabold text-slate-900">{activeCount}</div>
+            <div className="mt-2 font-data text-2xl font-bold text-slate-900">{activeCount}</div>
             <p className="mt-1 text-[11px] text-emerald-600 font-medium">98.4% online & sensing</p>
           </div>
 
@@ -94,7 +94,7 @@ export function FleetPage() {
                 <Signal className="h-4 w-4" />
               </span>
             </div>
-            <div className="mt-2 text-2xl font-extrabold text-slate-900">{offlineCount}</div>
+            <div className="mt-2 font-data text-2xl font-bold text-slate-900">{offlineCount}</div>
             <p className="mt-1 text-[11px] text-rose-600 font-medium">No heartbeat link</p>
           </div>
 
@@ -105,7 +105,7 @@ export function FleetPage() {
                 <Radio className="h-4 w-4" />
               </span>
             </div>
-            <div className="mt-2 text-2xl font-extrabold text-slate-900">{processingCount}</div>
+            <div className="mt-2 font-data text-2xl font-bold text-slate-900">{processingCount}</div>
             <p className="mt-1 text-[11px] text-slate-500">Depot idle or upload</p>
           </div>
 
@@ -116,7 +116,7 @@ export function FleetPage() {
                 <Satellite className="h-4 w-4" />
               </span>
             </div>
-            <div className="mt-2 text-2xl font-extrabold text-slate-900">{gpsConnectedCount}</div>
+            <div className="mt-2 font-data text-2xl font-bold text-slate-900">{gpsConnectedCount}</div>
             <p className="mt-1 text-[11px] text-slate-500">Location lock healthy</p>
           </div>
 
@@ -127,7 +127,7 @@ export function FleetPage() {
                 <Camera className="h-4 w-4" />
               </span>
             </div>
-            <div className="mt-2 text-2xl font-extrabold text-slate-900">{cameraConnectedCount}</div>
+            <div className="mt-2 font-data text-2xl font-bold text-slate-900">{cameraConnectedCount}</div>
             <p className="mt-1 text-[11px] text-slate-500">All 4 channels streaming</p>
           </div>
         </div>
@@ -212,7 +212,7 @@ export function FleetPage() {
         {/* Fleet Table */}
         <div className="rounded-lg border border-slate-200 bg-white shadow-xs overflow-hidden">
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3 bg-slate-50">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+            <span className="font-ui text-xs font-semibold uppercase tracking-wider text-slate-700">
               Fleet Operational Registry ({filteredBuses.length} units listed)
             </span>
             <span className="text-[11px] text-slate-500 font-mono">

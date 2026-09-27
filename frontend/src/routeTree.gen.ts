@@ -25,6 +25,7 @@ import { Route as SafetyRouteImport } from './routes/safety'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TrafficRouteImport } from './routes/traffic'
 import { Route as VerificationRouteImport } from './routes/verification'
+import { Route as VideoProcessingRouteImport } from './routes/video-processing'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as WorkQueueRouteImport } from './routes/work-queue'
 
@@ -108,6 +109,11 @@ const VerificationRoute = VerificationRouteImport.update({
   path: '/verification',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VideoProcessingRoute = VideoProcessingRouteImport.update({
+  id: '/video-processing',
+  path: '/video-processing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VideosRoute = VideosRouteImport.update({
   id: '/videos',
   path: '/videos',
@@ -136,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/traffic': typeof TrafficRoute
   '/verification': typeof VerificationRoute
+  '/video-processing': typeof VideoProcessingRoute
   '/videos': typeof VideosRoute
   '/work-queue': typeof WorkQueueRoute
 }
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/traffic': typeof TrafficRoute
   '/verification': typeof VerificationRoute
+  '/video-processing': typeof VideoProcessingRoute
   '/videos': typeof VideosRoute
   '/work-queue': typeof WorkQueueRoute
 }
@@ -177,6 +185,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/traffic': typeof TrafficRoute
   '/verification': typeof VerificationRoute
+  '/video-processing': typeof VideoProcessingRoute
   '/videos': typeof VideosRoute
   '/work-queue': typeof WorkQueueRoute
 }
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/traffic'
     | '/verification'
+    | '/video-processing'
     | '/videos'
     | '/work-queue'
   fileRoutesByTo: FileRoutesByTo
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/traffic'
     | '/verification'
+    | '/video-processing'
     | '/videos'
     | '/work-queue'
   id:
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/traffic'
     | '/verification'
+    | '/video-processing'
     | '/videos'
     | '/work-queue'
   fileRoutesById: FileRoutesById
@@ -260,6 +272,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TrafficRoute: typeof TrafficRoute
   VerificationRoute: typeof VerificationRoute
+  VideoProcessingRoute: typeof VideoProcessingRoute
   VideosRoute: typeof VideosRoute
   WorkQueueRoute: typeof WorkQueueRoute
 }
@@ -378,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerificationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/video-processing': {
+      id: '/video-processing'
+      path: '/video-processing'
+      fullPath: '/video-processing'
+      preLoaderRoute: typeof VideoProcessingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/videos': {
       id: '/videos'
       path: '/videos'
@@ -412,6 +432,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TrafficRoute: TrafficRoute,
   VerificationRoute: VerificationRoute,
+  VideoProcessingRoute: VideoProcessingRoute,
   VideosRoute: VideosRoute,
   WorkQueueRoute: WorkQueueRoute,
 }

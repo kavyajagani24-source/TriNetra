@@ -105,10 +105,6 @@ export function useEvents(filters?: UseEventsFilters) {
       const msg = (err as { message?: string })?.message || "Failed to load events from backend.";
       setError(msg);
       setBackendOnline(false);
-
-      // Fallback to mock
-      setEvents(MOCK_EVENTS);
-      setTotal(MOCK_EVENTS.length);
     } finally {
       setLoading(false);
     }

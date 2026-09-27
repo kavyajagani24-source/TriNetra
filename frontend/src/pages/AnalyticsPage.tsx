@@ -45,7 +45,7 @@ export function AnalyticsPage() {
         {/* Filters Header Bar */}
         <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-xs md:grid-cols-5">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <label className="block font-ui text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
               Date Range
             </label>
             <select
@@ -60,7 +60,7 @@ export function AnalyticsPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <label className="block font-ui text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
               Route
             </label>
             <select
@@ -76,7 +76,7 @@ export function AnalyticsPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <label className="block font-ui text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
               Location / Ward
             </label>
             <select
@@ -92,7 +92,7 @@ export function AnalyticsPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <label className="block font-ui text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
               Issue Type
             </label>
             <select
@@ -109,7 +109,7 @@ export function AnalyticsPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <label className="block font-ui text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
               Severity
             </label>
             <select
@@ -128,37 +128,37 @@ export function AnalyticsPage() {
         {/* Key Metrics Restrained Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Observations</span>
+            <span className="font-ui text-[10px] font-semibold uppercase tracking-wider text-slate-500">Total Observations</span>
             <div className="mt-1 text-2xl font-extrabold text-slate-900">2,437</div>
             <span className="text-[11px] text-slate-500">Bus vision passes</span>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Road Defects</span>
+            <span className="font-ui text-[10px] font-semibold uppercase tracking-wider text-slate-500">Road Defects</span>
             <div className="mt-1 text-2xl font-extrabold text-slate-900">104</div>
             <span className="text-[11px] text-slate-500">Potholes & cracks</span>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Traffic Events</span>
+            <span className="font-ui text-[10px] font-semibold uppercase tracking-wider text-slate-500">Traffic Events</span>
             <div className="mt-1 text-2xl font-extrabold text-slate-900">61</div>
             <span className="text-[11px] text-slate-500">Corridor delays</span>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">AI Incidents</span>
+            <span className="font-ui text-[10px] font-semibold uppercase tracking-wider text-slate-500">AI Incidents</span>
             <div className="mt-1 text-2xl font-extrabold text-slate-900">18</div>
             <span className="text-[11px] text-slate-500">Candidates flagged</span>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Resolved Issues</span>
+            <span className="font-ui text-[10px] font-semibold uppercase tracking-wider text-slate-500">Resolved Issues</span>
             <div className="mt-1 text-2xl font-extrabold text-emerald-700">181</div>
             <span className="text-[11px] text-emerald-600 font-medium">88% verified</span>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Avg Resolution Time</span>
+            <span className="font-ui text-[10px] font-semibold uppercase tracking-wider text-slate-500">Avg Resolution Time</span>
             <div className="mt-1 text-2xl font-extrabold text-slate-900">38 h</div>
             <span className="text-[11px] text-slate-500">SLA performance</span>
           </div>
