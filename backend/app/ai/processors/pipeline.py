@@ -359,7 +359,43 @@ class UrbanAIPipeline:
                                 f_idx = int(d.get("first_seen_frame", 0))
                                 frames_map.setdefault(f_idx, []).append(td)
 
-                    native_safety_events: List[UrbanEventData] = []
+                    # 1. Produce explicit VRU events for every detected pedestrian/cyclist track
+                    if traffic_result and traffic_result.detections:
+                        for d in traffic_result.detections:
+                            c_name = str(d.get("class_name", "")).lower()
+                            if c_name in ("person", "pedestrian", "bicycle", "cyclist"):
+                                bbox_raw = d.get("bbox", [])
+                                bx1 = float(bbox_raw[0]) if len(bbox_raw) >= 4 else None
+                                by1 = float(bbox_raw[1]) if len(bbox_raw) >= 4 else None
+                                bx2 = float(bbox_raw[2]) if len(bbox_raw) >= 4 else None
+                                by2 = float(bbox_raw[3]) if len(bbox_raw) >= 4 else None
+                                conf = float(d.get("latest_confidence", 0.75))
+                                f_idx = int(d.get("first_seen_frame", 0))
+                                ts = float(d.get("first_seen_ts", 0.0))
+                                ev_type = EventType.CROSSING_CANDIDATE if c_name in ("bicycle", "cyclist") else EventType.PEDESTRIAN_RISK
+                                native_safety_events.append(
+                                    UrbanEventData(
+                                        event_type=ev_type,
+                                        severity=EventSeverity.MEDIUM,
+                                        confidence=conf,
+                                        frame_number=f_idx,
+                                        timestamp=ts,
+                                        bbox_x1=bx1,
+                                        bbox_y1=by1,
+                                        bbox_x2=bx2,
+                                        bbox_y2=by2,
+                                        latitude=video_lat,
+                                        longitude=video_lon,
+                                        description=f"Vulnerable road user ({c_name}) detected in corridor at {ts:.1f}s (Track #{d.get('track_id')}).",
+                                        extra_metadata={
+                                            "track_id": d.get("track_id"),
+                                            "class_name": c_name,
+                                            "source": "REAL_VIDEO_INFERENCE",
+                                        },
+                                    )
+                                )
+
+                    # 2. Run spatial proximity / roadway risk analysis
                     for f_idx, tracked_list in sorted(frames_map.items()):
                         ts = f_idx / max(1.0, fps)
                         fr = FrameResult(
@@ -432,33 +468,55 @@ class UrbanAIPipeline:
                 from app.ai.models.event_types import EventSeverity, EventType
                 is_true_accident = inc_report.collision.detected and getattr(inc_report.collision, "operational_tier", "") == "DISPATCH_EMERGENCY"
 
+                # Only emit collision event if confidence is meaningful
+                # (>= 0.65 for collisions, >= 0.55 for near-misses).
+                # The collision model can fire at prob=0.50 (just barely above threshold)
+                # on any video with multiple vehicles in proximity. Gate to meaningful scores.
+                collision_conf_gate = 0.65 if inc_report.collision.detected else 0.55
                 if inc_report.collision.detected or inc_report.collision.near_collision_flagged:
-                    incident_urban_events.append(
-                        UrbanEventData(
-                            event_type=EventType.ACCIDENT if is_true_accident else EventType.NEAR_MISS,
-                            severity=EventSeverity.CRITICAL if is_true_accident else EventSeverity.HIGH,
-                            confidence=inc_report.collision.confidence,
-                            frame_number=inc_report.collision.peak_frame_idx or 0,
-                            timestamp=inc_report.collision.peak_timestamp_sec or 0.0,
-                            latitude=video_lat,
-                            longitude=video_lon,
-                            description=(
-                                f"Collision candidate detected (Score: {int(inc_report.collision.confidence*100)}%). "
-                                f"Involved tracks: {inc_report.collision.involved_track_ids}."
-                                if is_true_accident
-                                else f"Near-collision / vehicle proximity interaction (Score: {int(inc_report.collision.confidence*100)}%). Involved tracks: {inc_report.collision.involved_track_ids}."
-                            ),
-                            extra_metadata={
-                                "fusion_score": inc_report.collision.fused_incident_score,
-                                "operational_tier": inc_report.collision.operational_tier,
-                                "evidence_frame": inc_report.evidence.during_image_url,
-                                "evidence_before": inc_report.evidence.before_image_url,
-                                "evidence_after": inc_report.evidence.after_image_url,
-                            },
+                    if inc_report.collision.confidence >= collision_conf_gate:
+                        incident_urban_events.append(
+                            UrbanEventData(
+                                event_type=EventType.ACCIDENT if is_true_accident else EventType.NEAR_MISS,
+                                severity=EventSeverity.CRITICAL if is_true_accident else EventSeverity.HIGH,
+                                confidence=inc_report.collision.confidence,
+                                frame_number=inc_report.collision.peak_frame_idx or 0,
+                                timestamp=inc_report.collision.peak_timestamp_sec or 0.0,
+                                latitude=video_lat,
+                                longitude=video_lon,
+                                description=(
+                                    f"Collision candidate detected (Score: {int(inc_report.collision.confidence*100)}%). "
+                                    f"Involved tracks: {inc_report.collision.involved_track_ids}."
+                                    if is_true_accident
+                                    else f"Near-collision / vehicle proximity interaction (Score: {int(inc_report.collision.confidence*100)}%). Involved tracks: {inc_report.collision.involved_track_ids}."
+                                ),
+                                extra_metadata={
+                                    "fusion_score": inc_report.collision.fused_incident_score,
+                                    "operational_tier": inc_report.collision.operational_tier,
+                                    "evidence_frame": inc_report.evidence.during_image_url,
+                                    "evidence_before": inc_report.evidence.before_image_url,
+                                    "evidence_after": inc_report.evidence.after_image_url,
+                                },
+                            )
                         )
-                    )
 
                 for rd in inc_report.abnormal_driving:
+                    # Only emit RASH_DRIVING for true ABNORMAL_DRIVING_CANDIDATE with high confidence.
+                    # REVIEW_REQUIRED (2 mild anomalies, 55% confidence) is NOT rash driving —
+                    # it's a false positive from normal vehicle movement (braking at a stop,
+                    # turning, parking). Filter those out here.
+                    if rd.behavior_label != "ABNORMAL_DRIVING_CANDIDATE":
+                        logger.debug(
+                            "[%s] Skipping rash_driving event for track %s: label=%s (not ABNORMAL_DRIVING_CANDIDATE)",
+                            job_id, rd.track_id, rd.behavior_label,
+                        )
+                        continue
+                    if rd.confidence < 0.70:
+                        logger.debug(
+                            "[%s] Skipping rash_driving event for track %s: confidence=%.2f < 0.70",
+                            job_id, rd.track_id, rd.confidence,
+                        )
+                        continue
                     incident_urban_events.append(
                         UrbanEventData(
                             event_type=EventType.RASH_DRIVING,
@@ -468,7 +526,7 @@ class UrbanAIPipeline:
                             timestamp=rd.timestamp or 0.0,
                             latitude=video_lat,
                             longitude=video_lon,
-                            description=f"Rash driving candidate: Track #{rd.track_id} ({rd.class_name}). {rd.verdict_explanation or ''}",
+                            description=f"Rash driving detected: Track #{rd.track_id} ({rd.class_name}). {rd.verdict_explanation or ''}",
                             extra_metadata={
                                 "track_id": rd.track_id,
                                 "anomalies": rd.anomalies,
