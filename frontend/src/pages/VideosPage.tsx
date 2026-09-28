@@ -55,6 +55,8 @@ export interface UnifiedEvent {
   confidence: number;
   evidenceUrl?: string | null;
   coordinates?: { lat?: number | null; lon?: number | null };
+  bbox?: number[] | null;
+  damageClass?: string | null;
   extra?: Record<string, unknown>;
 }
 
@@ -320,6 +322,11 @@ function EventRow({
     incident: <Zap className="h-3.5 w-3.5 text-rose-600" />,
   };
 
+  const resolveImgUrl = (u: string) => {
+    if (u.startsWith("http://") || u.startsWith("https://")) return u;
+    return `${env.backendUrl}${u.startsWith("/") ? u : `/${u}`}`;
+  };
+
   return (
     <button
       onClick={() => onSelect(event)}
@@ -330,9 +337,22 @@ function EventRow({
           : "hover:bg-slate-50 border border-transparent"
       )}
     >
-      <div className="shrink-0 mt-0.5 flex items-center justify-center h-6 w-6 rounded bg-slate-100 text-slate-600">
-        {iconMap[event.module]}
-      </div>
+      {event.evidenceUrl ? (
+        <div className="shrink-0 relative h-10 w-14 rounded overflow-hidden border border-slate-200 bg-slate-900 group">
+          <img
+            src={resolveImgUrl(event.evidenceUrl)}
+            alt={event.label}
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = "none";
+            }}
+          />
+        </div>
+      ) : (
+        <div className="shrink-0 mt-0.5 flex items-center justify-center h-6 w-6 rounded bg-slate-100 text-slate-600">
+          {iconMap[event.module]}
+        </div>
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="font-semibold text-slate-900 truncate">{event.label}</span>
@@ -346,7 +366,7 @@ function EventRow({
           <span className="text-[10px] text-slate-400">{event.confidence}% confidence</span>
           {event.evidenceUrl && (
             <span className="text-[9px] text-[#2F7D57] font-semibold border border-[#2F7D57]/30 rounded px-1">
-              Frame Evidence
+              Visual Proof
             </span>
           )}
         </div>
@@ -364,13 +384,17 @@ function VideoPlayer({
   events,
   seekToTime,
   onEventSelect,
+  selectedEvent,
   annotatedStreams,
   activeModule,
+  streamKey,
+  onStreamKeyChange,
 }: {
   video: BackendVideo;
   events: UnifiedEvent[];
   seekToTime: number | null;
   onEventSelect?: (e: UnifiedEvent) => void;
+  selectedEvent?: UnifiedEvent | null;
   annotatedStreams?: {
     road?: string | null;
     traffic?: string | null;
@@ -378,6 +402,8 @@ function VideoPlayer({
     incident?: string | null;
   };
   activeModule?: string;
+  streamKey?: string;
+  onStreamKeyChange?: (key: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -388,8 +414,36 @@ function VideoPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
-  const [selectedStreamKey, setSelectedStreamKey] = useState<string>("raw");
+  const [internalStreamKey, setInternalStreamKey] = useState<string>("raw");
+  const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number }>({ width: 1920, height: 1080 });
+  const [containerRect, setContainerRect] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const selectedStreamKey = streamKey !== undefined ? streamKey : internalStreamKey;
+  const setSelectedStreamKey = (k: string) => {
+    setInternalStreamKey(k);
+    onStreamKeyChange?.(k);
+  };
   const lastTimeRef = useRef<number>(0);
+
+  // ResizeObserver to maintain exact video aspect ratio letterbox alignment
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerRect({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  // Synchronized active bounding box detections around currentTime
+  const activeDetections = useMemo(() => {
+    return events.filter((ev) => {
+      if (!ev.bbox || ev.bbox.length < 4) return false;
+      const timeDiff = Math.abs(ev.timestamp - currentTime);
+      return timeDiff <= 1.2 || (selectedEvent && selectedEvent.id === ev.id && timeDiff <= 2.5);
+    });
+  }, [events, currentTime, selectedEvent]);
 
   // Available stream options (Raw footage vs AI overlays)
   const availableStreams = useMemo(() => {
@@ -467,6 +521,12 @@ function VideoPlayer({
     if (videoRef.current) {
       const d = videoRef.current.duration;
       if (d && !isNaN(d)) setDuration(d);
+      if (videoRef.current.videoWidth && videoRef.current.videoHeight) {
+        setVideoDimensions({
+          width: videoRef.current.videoWidth,
+          height: videoRef.current.videoHeight,
+        });
+      }
       if (lastTimeRef.current > 0) {
         videoRef.current.currentTime = lastTimeRef.current;
         if (isPlaying) {
@@ -475,6 +535,41 @@ function VideoPlayer({
       }
     }
   };
+
+  // Compute exact letterboxed/pillarboxed video content rect inside container
+  const displayRect = useMemo(() => {
+    if (!containerRect.width || !containerRect.height || !videoDimensions.width || !videoDimensions.height) {
+      return { left: 0, top: 0, width: 100, height: 100 };
+    }
+    const containerAspect = containerRect.width / containerRect.height;
+    const videoAspect = videoDimensions.width / videoDimensions.height;
+
+    if (Math.abs(containerAspect - videoAspect) < 0.02) {
+      return { left: 0, top: 0, width: 100, height: 100 };
+    }
+
+    if (containerAspect > videoAspect) {
+      // Pillarboxed (bars on sides)
+      const renderWidth = containerRect.height * videoAspect;
+      const leftOffset = (containerRect.width - renderWidth) / 2;
+      return {
+        left: (leftOffset / containerRect.width) * 100,
+        top: 0,
+        width: (renderWidth / containerRect.width) * 100,
+        height: 100,
+      };
+    } else {
+      // Letterboxed (bars on top/bottom)
+      const renderHeight = containerRect.width / videoAspect;
+      const topOffset = (containerRect.height - renderHeight) / 2;
+      return {
+        left: 0,
+        top: (topOffset / containerRect.height) * 100,
+        width: 100,
+        height: (renderHeight / containerRect.height) * 100,
+      };
+    }
+  }, [containerRect, videoDimensions]);
 
   const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -528,6 +623,12 @@ function VideoPlayer({
           onClick={togglePlay}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
+          onError={() => {
+            const mp4Stream = availableStreams.find((s) => s.key !== "raw" && s.url.endsWith(".mp4"));
+            if (mp4Stream && selectedStreamKey !== mp4Stream.key) {
+              setSelectedStreamKey(mp4Stream.key);
+            }
+          }}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onEnded={() => setIsPlaying(false)}
@@ -539,6 +640,79 @@ function VideoPlayer({
           <p className="text-xs">No streamable video file available</p>
         </div>
       )}
+
+      {/* Real-time Dynamic AI Bounding Box & Defect Classification Overlay */}
+      <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
+        {activeDetections.map((det) => {
+          const [bx1, by1, bx2, by2] = det.bbox!;
+          const isPx = bx2 > 1.0 || by2 > 1.0;
+          const vw = videoDimensions.width || 1920;
+          const vh = videoDimensions.height || 1080;
+
+          const relLeft = Math.max(0, Math.min(100, isPx ? (bx1 / vw) * 100 : bx1 * 100));
+          const relTop = Math.max(0, Math.min(100, isPx ? (by1 / vh) * 100 : by1 * 100));
+          const relWidth = Math.max(2, Math.min(100 - relLeft, isPx ? ((bx2 - bx1) / vw) * 100 : (bx2 - bx1) * 100));
+          const relHeight = Math.max(2, Math.min(100 - relTop, isPx ? ((by2 - by1) / vh) * 100 : (by2 - by1) * 100));
+
+          const left = displayRect.left + (relLeft * displayRect.width) / 100;
+          const top = displayRect.top + (relTop * displayRect.height) / 100;
+          const width = (relWidth * displayRect.width) / 100;
+          const height = (relHeight * displayRect.height) / 100;
+
+          const damageClass =
+            det.damageClass ||
+            (det.extra?.damage_class as string) ||
+            (det.label.toLowerCase().includes("pothole")
+              ? "D40"
+              : det.label.toLowerCase().includes("alligator")
+              ? "D20"
+              : det.label.toLowerCase().includes("crack")
+              ? "D00"
+              : "D40");
+
+          const isCritical = det.severity === "critical" || damageClass === "D40";
+
+          return (
+            <div
+              key={det.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEventSelect?.(det);
+              }}
+              style={{
+                left: `${left}%`,
+                top: `${top}%`,
+                width: `${width}%`,
+                height: `${height}%`,
+              }}
+              className={cn(
+                "absolute border-2 pointer-events-auto cursor-pointer transition-all duration-75",
+                isCritical
+                  ? "border-[#EF4444] bg-[#EF4444]/20 shadow-[0_0_12px_rgba(239,68,68,0.8)]"
+                  : "border-[#F59E0B] bg-[#F59E0B]/20 shadow-[0_0_10px_rgba(245,158,11,0.7)]"
+              )}
+            >
+              {/* Corner brackets */}
+              <span className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-white" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-white" />
+              <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-white" />
+              <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-white" />
+
+              {/* Classification Tag Pill */}
+              <div
+                className={cn(
+                  "absolute -top-5 left-0 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-mono font-bold tracking-tight text-white shadow-md whitespace-nowrap",
+                  isCritical ? "bg-[#DC2626]" : "bg-[#D97706]"
+                )}
+              >
+                <span className="bg-black/50 px-1 rounded text-[9px] uppercase tracking-wider">{damageClass}</span>
+                <span>{det.label.replace(damageClass, "").trim() || "Road Defect"}</span>
+                <span className="opacity-90 font-normal">· {det.confidence}%</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Center Play/Pause Overlay — only when paused */}
       {!isPlaying && (
@@ -758,10 +932,20 @@ function OverviewTab({
   setSelectedMode: (m: string) => void;
 }) {
   const isDone = video.status === "READY" || video.status === "COMPLETED";
-  const roadCount = events.filter((e) => e.module === "road").length;
-  const trafficCount = events.filter((e) => e.module === "traffic").length;
-  const safetyCount = events.filter((e) => e.module === "safety").length;
-  const incidentCount = events.filter((e) => e.module === "incident").length;
+  const roadCount = statusData?.engine_statuses?.road?.detections_count !== undefined
+    ? Number(statusData.engine_statuses.road.detections_count)
+    : events.filter((e) => e.module === "road").length;
+  const trafficCount = statusData?.engine_statuses?.traffic?.tracks_count !== undefined
+    ? Number(statusData.engine_statuses.traffic.tracks_count)
+    : events.filter((e) => e.module === "traffic").length;
+  const safetyCount = statusData?.engine_statuses?.safety?.events_count !== undefined
+    ? Number(statusData.engine_statuses.safety.events_count)
+    : events.filter((e) => e.module === "safety").length;
+  const incidentCount = statusData?.engine_statuses?.incident?.rash_driving_count !== undefined
+    ? (Number(statusData.engine_statuses.incident.collision_detected ? 1 : 0) +
+       Number(statusData.engine_statuses.incident.hit_and_run_candidate ? 1 : 0) +
+       Number(statusData.engine_statuses.incident.rash_driving_count || 0))
+    : events.filter((e) => e.module === "incident").length;
 
   const MODES = [
     { id: "multi_engine", label: "All AI Engines (Unified)", icon: Sparkles, desc: "Run Road, Traffic, Safety & Incident pipelines concurrently" },
@@ -794,7 +978,7 @@ function OverviewTab({
 
   const STAGES = [
     { key: "road", name: "Road Defects (RDD2022)", icon: AlertTriangle, count: roadCount, unit: "defects" },
-    { key: "traffic", name: "Traffic Flow (UrbianTracker)", icon: Car, count: trafficCount, unit: "flows" },
+    { key: "traffic", name: "Traffic Flow (UrbianTracker)", icon: Car, count: trafficCount, unit: "tracked vehicles" },
     { key: "safety", name: "VRU Safety (Pedestrian)", icon: Shield, count: safetyCount, unit: "hazards" },
     { key: "incident", name: "Incident + ANPR (Multi-Signal)", icon: Zap, count: incidentCount, unit: "candidates" },
   ];
@@ -974,23 +1158,99 @@ function OverviewTab({
 function RoadTab({
   video,
   events,
+  statusData,
   onEventSelect,
   selectedEvent,
   onTriggerAnalysis,
+  onSelectStream,
 }: {
   video: BackendVideo;
   events: UnifiedEvent[];
+  statusData: VideoProcessingStatusResponse | null;
   onEventSelect: (e: UnifiedEvent) => void;
   selectedEvent: UnifiedEvent | null;
   onTriggerAnalysis: () => void;
+  onSelectStream?: (streamKey: string) => void;
 }) {
+  const [filterType, setFilterType] = useState<"all" | "pothole" | "crack" | "priority">("all");
+  const [inspectModalDefect, setInspectModalDefect] = useState<UnifiedEvent | null>(null);
+
+  const resolveImgUrl = (u: string) => {
+    if (u.startsWith("http://") || u.startsWith("https://")) return u;
+    return `${env.backendUrl}${u.startsWith("/") ? u : `/${u}`}`;
+  };
+
   const roadEvents = events.filter((e) => e.module === "road");
+  const potholeEvents = roadEvents.filter(
+    (e) =>
+      e.label.toLowerCase().includes("pothole") ||
+      (e.extra?.["damage_class"] as string) === "D40" ||
+      e.detail?.toLowerCase().includes("pothole")
+  );
+  const crackEvents = roadEvents.filter(
+    (e) =>
+      e.label.toLowerCase().includes("crack") ||
+      ["D00", "D10", "D20"].includes(e.extra?.["damage_class"] as string) ||
+      e.detail?.toLowerCase().includes("crack")
+  );
   const critical = roadEvents.filter((e) => e.severity === "critical").length;
   const high = roadEvents.filter((e) => e.severity === "high").length;
   const watch = roadEvents.filter((e) => e.severity === "medium" || e.severity === "low").length;
 
+  const defectsWithEvidence = roadEvents.filter((e) => Boolean(e.evidenceUrl));
+
+  const filteredEvidence = defectsWithEvidence.filter((ev) => {
+    if (filterType === "pothole") {
+      return (
+        ev.label.toLowerCase().includes("pothole") ||
+        (ev.extra?.["damage_class"] as string) === "D40" ||
+        ev.detail?.toLowerCase().includes("pothole")
+      );
+    }
+    if (filterType === "crack") {
+      return (
+        ev.label.toLowerCase().includes("crack") ||
+        ["D00", "D10", "D20"].includes(ev.extra?.["damage_class"] as string) ||
+        ev.detail?.toLowerCase().includes("crack")
+      );
+    }
+    if (filterType === "priority") {
+      return ev.severity === "critical" || ev.severity === "high";
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-4">
+      {/* Annotated Road Stream Banner */}
+      {statusData?.annotated_road_path && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-[#2F7D57]/30 bg-[#EEF7F1] shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-[#174A35] flex items-center justify-center text-[#4ADE80] shrink-0">
+              <Film className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                Road AI Video Stream Available (RDD2022 Overlays)
+                <span className="text-[10px] bg-[#2F7D57] text-white px-1.5 py-0.5 rounded font-semibold">
+                  Annotated MP4
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                Displays real-time bounding boxes with confidence scores directly onto video frames.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onSelectStream?.("road")}
+            className="px-3.5 py-1.5 rounded-md bg-[#174A35] text-white text-xs font-semibold hover:bg-[#2F7D57] transition-all flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+          >
+            <Play className="h-3.5 w-3.5 fill-current text-[#4ADE80]" />
+            Watch Road AI Annotated Stream
+          </button>
+        </div>
+      )}
+
       {/* Header Metric Cards */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
         <div className="flex items-center justify-between">
@@ -999,28 +1259,166 @@ function RoadTab({
               Road & Infrastructure AI
             </h3>
             <p className="text-[11px] text-slate-500">
-              Detection of potholes (D40), surface cracking (D00/D10/D20), waterlogging, and signage
+              Automated detection of potholes (D40), surface cracks (D00/D10/D20), waterlogging, and signage
             </p>
           </div>
           <span className="text-xs font-semibold text-[#2F7D57] flex items-center gap-1">
-            <CheckCircle2 className="h-3.5 w-3.5" /> RDD2022 Checkpoint
+            <CheckCircle2 className="h-3.5 w-3.5" /> RDD2022 Model
           </span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2.5 pt-1">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-2 text-center">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 text-center">
             <div className="font-data text-lg font-bold text-slate-900">{roadEvents.length}</div>
             <div className="text-[10px] text-slate-500">Total Observations</div>
           </div>
-          <div className="rounded-md border border-rose-200 bg-rose-50 p-2 text-center">
-            <div className="font-data text-lg font-bold text-rose-700">{critical + high}</div>
-            <div className="text-[10px] text-rose-600">Priority Hazards</div>
+          <div className="rounded-md border border-rose-200 bg-rose-50 p-2.5 text-center">
+            <div className="font-data text-lg font-bold text-rose-700">{potholeEvents.length}</div>
+            <div className="text-[10px] text-rose-600">Potholes (D40)</div>
           </div>
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-2 text-center">
-            <div className="font-data text-lg font-bold text-amber-700">{watch}</div>
-            <div className="text-[10px] text-amber-600">Surface Degradation</div>
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-center">
+            <div className="font-data text-lg font-bold text-amber-700">{crackEvents.length}</div>
+            <div className="text-[10px] text-amber-600">Cracks (D00-D20)</div>
+          </div>
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2.5 text-center">
+            <div className="font-data text-lg font-bold text-emerald-700">{defectsWithEvidence.length}</div>
+            <div className="text-[10px] text-emerald-600">Visual Crops Saved</div>
           </div>
         </div>
+      </div>
+
+      {/* Visual Defect Evidence Gallery */}
+      <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <Eye className="h-3.5 w-3.5 text-[#2F7D57]" />
+              Visual Defect Evidence Gallery ({defectsWithEvidence.length})
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              Captured image crops from the video frames demonstrating pavement distress
+            </p>
+          </div>
+
+          {/* Gallery Filters */}
+          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-md text-xs">
+            <button
+              onClick={() => setFilterType("all")}
+              className={cn(
+                "px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer",
+                filterType === "all" ? "bg-white text-slate-900 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              All ({defectsWithEvidence.length})
+            </button>
+            <button
+              onClick={() => setFilterType("pothole")}
+              className={cn(
+                "px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer",
+                filterType === "pothole" ? "bg-white text-rose-700 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              Potholes ({potholeEvents.filter((e) => e.evidenceUrl).length})
+            </button>
+            <button
+              onClick={() => setFilterType("crack")}
+              className={cn(
+                "px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer",
+                filterType === "crack" ? "bg-white text-amber-700 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              Cracks ({crackEvents.filter((e) => e.evidenceUrl).length})
+            </button>
+            <button
+              onClick={() => setFilterType("priority")}
+              className={cn(
+                "px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer",
+                filterType === "priority" ? "bg-white text-slate-900 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              Priority ({critical + high})
+            </button>
+          </div>
+        </div>
+
+        {filteredEvidence.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 space-y-2">
+            <AlertTriangle className="h-8 w-8 mx-auto text-slate-300" />
+            <p className="text-xs">No visual crops found matching this filter.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+            {filteredEvidence.map((ev) => {
+              const imgUrl = resolveImgUrl(ev.evidenceUrl!);
+              const isSelected = selectedEvent?.id === ev.id;
+              return (
+                <div
+                  key={ev.id}
+                  onClick={() => onEventSelect(ev)}
+                  className={cn(
+                    "group relative rounded-lg border overflow-hidden bg-slate-50 transition-all cursor-pointer hover:shadow-md",
+                    isSelected
+                      ? "border-[#2F7D57] ring-2 ring-[#2F7D57]/20 bg-[#EEF7F1]"
+                      : "border-slate-200 hover:border-slate-300"
+                  )}
+                >
+                  <div className="aspect-[16/10] w-full bg-slate-900 relative overflow-hidden">
+                    <img
+                      src={imgUrl}
+                      alt={ev.label}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                      <span className="rounded bg-black/80 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white backdrop-blur-xs">
+                        {fmtTs(ev.timestamp)}
+                      </span>
+                      <SeverityBadge severity={ev.severity} />
+                    </div>
+                    <div className="absolute top-2 right-2">
+                      <span className="rounded bg-[#174A35]/90 px-1.5 py-0.5 text-[10px] font-bold text-[#4ADE80] border border-[#4ADE80]/30 shadow-xs">
+                        {ev.confidence}% conf
+                      </span>
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2.5">
+                      <span className="text-[11px] text-white font-medium flex items-center gap-1">
+                        <Play className="h-3 w-3 fill-current text-[#4ADE80]" /> Seek & Play
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInspectModalDefect(ev);
+                        }}
+                        className="p-1 rounded bg-black/60 text-white hover:bg-black/90 transition-colors"
+                        title="Enlarge Evidence"
+                      >
+                        <Maximize2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-2.5 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-900 group-hover:text-[#2F7D57] transition-colors truncate">
+                        {ev.label}
+                      </span>
+                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
+                        {ev.extra?.["damage_class"] ? String(ev.extra["damage_class"]) : "DEFECT"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 line-clamp-1">{ev.detail}</p>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-200/60">
+                      <span>Frame #{ev.extra?.["frame_number"] ?? Math.round(ev.timestamp * 30)}</span>
+                      <span className="text-[#2F7D57] font-semibold">Click to seek video →</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Defect Timeline */}
@@ -1029,7 +1427,7 @@ function RoadTab({
           <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
             Road Defect Timeline ({roadEvents.length})
           </span>
-          <span className="text-[11px] text-slate-500">Click to seek timestamp</span>
+          <span className="text-[11px] text-slate-500">Click to seek timestamp in footage</span>
         </div>
         <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
           {roadEvents.length === 0 ? (
@@ -1055,6 +1453,75 @@ function RoadTab({
           )}
         </div>
       </div>
+
+      {/* Inspect Defect Modal */}
+      {inspectModalDefect && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <SeverityBadge severity={inspectModalDefect.severity} />
+                <h4 className="font-bold text-sm text-slate-900">{inspectModalDefect.label}</h4>
+              </div>
+              <button
+                onClick={() => setInspectModalDefect(null)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {inspectModalDefect.evidenceUrl && (
+                <div className="rounded-lg overflow-hidden bg-black aspect-video flex items-center justify-center border border-slate-200 shadow-inner">
+                  <img
+                    src={resolveImgUrl(inspectModalDefect.evidenceUrl)}
+                    alt={inspectModalDefect.label}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+                  <span className="text-slate-500 block text-[10px]">Timestamp</span>
+                  <span className="font-mono font-bold text-slate-900">{fmtTs(inspectModalDefect.timestamp)}</span>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+                  <span className="text-slate-500 block text-[10px]">Damage Classification</span>
+                  <span className="font-bold text-slate-900">{inspectModalDefect.extra?.["damage_class"] ? String(inspectModalDefect.extra["damage_class"]) : "D40 (Pothole)"}</span>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+                  <span className="text-slate-500 block text-[10px]">Model Confidence</span>
+                  <span className="font-bold text-emerald-700">{inspectModalDefect.confidence}%</span>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+                  <span className="text-slate-500 block text-[10px]">Frame Number</span>
+                  <span className="font-mono font-bold text-slate-900">#{inspectModalDefect.extra?.["frame_number"] ?? Math.round(inspectModalDefect.timestamp * 30)}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  onClick={() => setInspectModalDefect(null)}
+                  className="px-3 py-1.5 rounded-md border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    onEventSelect(inspectModalDefect);
+                    setInspectModalDefect(null);
+                  }}
+                  className="px-3 py-1.5 rounded-md bg-[#174A35] text-xs font-semibold text-white hover:bg-[#2F7D57] flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Play className="h-3.5 w-3.5 fill-current" /> Seek Video Player Here
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1064,24 +1531,30 @@ function TrafficTab({
   video,
   events,
   jobResults,
+  statusData,
   onEventSelect,
   selectedEvent,
   onTriggerAnalysis,
+  onSelectStream,
 }: {
   video: BackendVideo;
   events: UnifiedEvent[];
   jobResults: BackendJobResults | null;
+  statusData?: VideoProcessingStatusResponse | null;
   onEventSelect: (e: UnifiedEvent) => void;
   selectedEvent: UnifiedEvent | null;
   onTriggerAnalysis: () => void;
+  onSelectStream?: (streamKey: string) => void;
 }) {
   const trafficEvents = events.filter((e) => e.module === "traffic");
 
   const totalTracked = jobResults?.total_unique_vehicles ?? trafficEvents.length;
-  const carCount = jobResults?.vehicle_counts_by_class?.["car"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("car")).length;
-  const motoCount = jobResults?.vehicle_counts_by_class?.["motorcycle"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("motorcycle") || e.label.toLowerCase().includes("two")).length;
-  const busCount = jobResults?.vehicle_counts_by_class?.["bus"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("bus")).length;
-  const truckCount = jobResults?.vehicle_counts_by_class?.["truck"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("truck")).length;
+  const countsMap = (jobResults as any)?.counts_by_class || jobResults?.vehicle_counts_by_class || {};
+  const carCount = countsMap["car"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("car")).length;
+  const motoCount = countsMap["motorcycle"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("motorcycle") || e.label.toLowerCase().includes("two")).length;
+  const busCount = countsMap["bus"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("bus")).length;
+  const truckCount = countsMap["truck"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("truck")).length;
+  const pedestrianCount = countsMap["person"] ?? countsMap["pedestrian"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("person") || e.label.toLowerCase().includes("pedestrian")).length;
   const peakDensity = jobResults?.peak_density ?? (totalTracked > 15 ? "HIGH" : totalTracked > 5 ? "MEDIUM" : totalTracked > 0 ? "LOW" : "NONE");
   const congestion = jobResults?.avg_congestion_level ?? (totalTracked > 20 ? "HIGH" : totalTracked > 5 ? "MODERATE" : "LOW");
 
@@ -1091,12 +1564,42 @@ function TrafficTab({
     twoWheelers: motoCount,
     buses: busCount,
     trucks: truckCount,
+    pedestrians: pedestrianCount,
     peakDensity,
     congestion,
   };
 
   return (
     <div className="space-y-4">
+      {/* Annotated Traffic Stream Banner */}
+      {statusData?.annotated_traffic_path && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-[#2F7D57]/30 bg-[#EEF7F1] shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-[#174A35] flex items-center justify-center text-[#4ADE80] shrink-0">
+              <Film className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                Traffic Flow Video Stream Available (UrbianTracker)
+                <span className="text-[10px] bg-[#2F7D57] text-white px-1.5 py-0.5 rounded font-semibold">
+                  Track IDs & Flow
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                Displays vehicle bounding boxes, persistent track IDs, velocity vectors, and class classifications.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onSelectStream?.("traffic")}
+            className="px-3.5 py-1.5 rounded-md bg-[#174A35] text-white text-xs font-semibold hover:bg-[#2F7D57] transition-all flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+          >
+            <Play className="h-3.5 w-3.5 fill-current text-[#4ADE80]" />
+            Watch Traffic Flow Stream
+          </button>
+        </div>
+      )}
+
       {/* Vehicle Summary Metrics */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
         <div className="flex items-center justify-between">
@@ -1105,7 +1608,7 @@ function TrafficTab({
               Traffic Intelligence & Density
             </h3>
             <p className="text-[11px] text-slate-500">
-              YOLO11x vehicle detection, UrbianTracker (Distance-IoU + class constraint), and flow velocity
+              YOLO11x vehicle & pedestrian detection, UrbianTracker (Distance-IoU + class constraint), and flow velocity
             </p>
           </div>
           <span className="text-xs font-semibold text-[#2F7D57] flex items-center gap-1">
@@ -1113,7 +1616,7 @@ function TrafficTab({
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
           <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
             <span className="text-slate-600">Total Tracked</span>
             <span className="font-data font-bold text-slate-900">{counts.total}</span>
@@ -1127,12 +1630,20 @@ function TrafficTab({
             <span className="font-data font-bold text-slate-900">{counts.twoWheelers}</span>
           </div>
           <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+            <span className="text-slate-600">Pedestrians</span>
+            <span className="font-data font-bold text-slate-900">{counts.pedestrians}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
             <span className="text-slate-600">Buses</span>
             <span className="font-data font-bold text-slate-900">{counts.buses}</span>
           </div>
           <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
             <span className="text-slate-600">Trucks / HGV</span>
             <span className="font-data font-bold text-slate-900">{counts.trucks}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+            <span className="text-slate-600">Peak Density</span>
+            <span className="font-bold text-[#174A35] uppercase text-[11px]">{counts.peakDensity}</span>
           </div>
           <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
             <span className="text-slate-600">Congestion</span>
@@ -1299,20 +1810,53 @@ function SafetyTab({
 function IncidentTab({
   video,
   events,
+  statusData,
   onEventSelect,
   selectedEvent,
   onTriggerAnalysis,
+  onSelectStream,
 }: {
   video: BackendVideo;
   events: UnifiedEvent[];
+  statusData?: VideoProcessingStatusResponse | null;
   onEventSelect: (e: UnifiedEvent) => void;
   selectedEvent: UnifiedEvent | null;
   onTriggerAnalysis: () => void;
+  onSelectStream?: (streamKey: string) => void;
 }) {
   const incidentEvents = events.filter((e) => e.module === "incident");
 
   return (
     <div className="space-y-4">
+      {/* Annotated Incident Stream Banner */}
+      {statusData?.annotated_incident_path && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-[#2F7D57]/30 bg-[#EEF7F1] shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-[#174A35] flex items-center justify-center text-[#4ADE80] shrink-0">
+              <Film className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                Incident AI Video Stream Available (Multi-Signal Overlays)
+                <span className="text-[10px] bg-[#2F7D57] text-white px-1.5 py-0.5 rounded font-semibold">
+                  Incident & ANPR
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                Displays collision trajectories, speed/deceleration telemetry, and vehicle tracks.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onSelectStream?.("incident")}
+            className="px-3.5 py-1.5 rounded-md bg-[#174A35] text-white text-xs font-semibold hover:bg-[#2F7D57] transition-all flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+          >
+            <Play className="h-3.5 w-3.5 fill-current text-[#4ADE80]" />
+            Watch Incident Video Stream
+          </button>
+        </div>
+      )}
+
       {/* Incident Metric Cards */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
         <div className="flex items-center justify-between">
@@ -1336,7 +1880,7 @@ function IncidentTab({
           </div>
           <div className="rounded-md border border-blue-200 bg-blue-50 p-2.5 text-center">
             <div className="font-data text-lg font-bold text-blue-700">
-              {incidentEvents.filter((e) => e.extra?.["plate"]).length}
+              {incidentEvents.filter((e) => e.extra?.["plate"] || e.extra?.["offending_plate"] || e.extra?.["plate_text"]).length}
             </div>
             <div className="text-[10px] text-blue-600 font-semibold">ANPR Plate Observations</div>
           </div>
@@ -1407,7 +1951,9 @@ function EvidenceTab({
           title: ev.label,
           module: ev.module,
           timestamp: ev.timestamp,
-          url: ev.evidenceUrl.startsWith("http") ? ev.evidenceUrl : `${env.backendUrl}${ev.evidenceUrl}`,
+          url: ev.evidenceUrl.startsWith("http")
+            ? ev.evidenceUrl
+            : `${env.backendUrl}${ev.evidenceUrl.startsWith("/") ? "" : "/"}${ev.evidenceUrl}`,
           confidence: ev.confidence,
           severity: ev.severity,
           event: ev,
@@ -1852,6 +2398,7 @@ function VideoWorkspace({
   const [activeModule, setActiveModule] = useState<AnalysisModule>("overview");
   const [selectedEvent, setSelectedEvent] = useState<UnifiedEvent | null>(null);
   const [seekToTime, setSeekToTime] = useState<number | null>(null);
+  const [playerStreamKey, setPlayerStreamKey] = useState<string>("raw");
   const { refreshLiveIntelligence } = useStore();
 
   // Real backend data states
@@ -1988,19 +2535,48 @@ function VideoWorkspace({
           ? "incident"
           : "traffic";
 
-      const evUrl = (ue.extra_metadata?.["evidence_frame"] as string) || null;
+      const evUrl =
+        (ue.extra_metadata?.["evidence_frame"] as string) ||
+        (ue.extra_metadata?.["evidence_ref"] as string) ||
+        (ue.extra_metadata?.["evidence_path"] as string) ||
+        null;
+
+      const damageClass =
+        (ue.extra_metadata?.["damage_class"] as string) ||
+        (ue.event_type.toUpperCase().includes("POTHOLE")
+          ? "D40"
+          : ue.event_type.toUpperCase().includes("ALLIGATOR")
+          ? "D20"
+          : ue.event_type.toUpperCase().includes("CRACK")
+          ? "D00"
+          : null);
+
+      const hasBbox =
+        ue.bbox_x1 != null &&
+        ue.bbox_y1 != null &&
+        ue.bbox_x2 != null &&
+        ue.bbox_y2 != null;
+      const bbox = hasBbox
+        ? [ue.bbox_x1 as number, ue.bbox_y1 as number, ue.bbox_x2 as number, ue.bbox_y2 as number]
+        : ((ue.extra_metadata?.["bbox"] as number[]) || null);
+
+      const displayLabel = damageClass
+        ? `${damageClass} ${ue.event_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}`
+        : ue.event_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
       list.push({
         id: `urban-${ue.id}`,
         module: mod,
         timestamp: Math.round((ue.timestamp || 0) * 10) / 10,
-        label: ue.event_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        label: displayLabel,
         detail: ue.description || `${ue.category} event detected at frame ${ue.frame_number}`,
         severity: (ue.severity?.toLowerCase() as "low" | "medium" | "high" | "critical") || "medium",
         confidence: Math.round((ue.confidence || 0.8) * 100),
         evidenceUrl: evUrl,
         coordinates: { lat: ue.latitude, lon: ue.longitude },
-        extra: { ...ue.extra_metadata },
+        bbox,
+        damageClass,
+        extra: { ...ue.extra_metadata, damage_class: damageClass, bbox },
       });
     });
 
@@ -2013,12 +2589,30 @@ function VideoWorkspace({
     setSeekToTime(ev.timestamp);
   };
 
+  const roadTabCount = statusData?.engine_statuses?.road?.detections_count !== undefined
+    ? Number(statusData.engine_statuses.road.detections_count)
+    : allEvents.filter((e) => e.module === "road").length;
+
+  const trafficTabCount = (statusData?.engine_statuses?.traffic?.tracks_count !== undefined
+    ? Number(statusData.engine_statuses.traffic.tracks_count)
+    : jobResults?.total_unique_vehicles) || allEvents.filter((e) => e.module === "traffic").length;
+
+  const safetyTabCount = statusData?.engine_statuses?.safety?.events_count !== undefined
+    ? Number(statusData.engine_statuses.safety.events_count)
+    : allEvents.filter((e) => e.module === "safety").length;
+
+  const incidentTabCount = statusData?.engine_statuses?.incident?.rash_driving_count !== undefined
+    ? (Number(statusData.engine_statuses.incident.collision_detected ? 1 : 0) +
+       Number(statusData.engine_statuses.incident.hit_and_run_candidate ? 1 : 0) +
+       Number(statusData.engine_statuses.incident.rash_driving_count || 0))
+    : allEvents.filter((e) => e.module === "incident").length;
+
   const TABS: { key: AnalysisModule; label: string; icon: React.ReactNode; count: number }[] = [
     { key: "overview", label: "Overview", icon: <Eye className="h-3.5 w-3.5" />, count: allEvents.length },
-    { key: "road", label: "Road & Infrastructure", icon: <AlertTriangle className="h-3.5 w-3.5" />, count: allEvents.filter((e) => e.module === "road").length },
-    { key: "traffic", label: "Traffic", icon: <Car className="h-3.5 w-3.5" />, count: allEvents.filter((e) => e.module === "traffic").length },
-    { key: "safety", label: "Safety", icon: <Shield className="h-3.5 w-3.5" />, count: allEvents.filter((e) => e.module === "safety").length },
-    { key: "incident", label: "Incident + ANPR", icon: <Zap className="h-3.5 w-3.5" />, count: allEvents.filter((e) => e.module === "incident").length },
+    { key: "road", label: "Road & Infrastructure", icon: <AlertTriangle className="h-3.5 w-3.5" />, count: roadTabCount },
+    { key: "traffic", label: "Traffic", icon: <Car className="h-3.5 w-3.5" />, count: trafficTabCount },
+    { key: "safety", label: "Safety", icon: <Shield className="h-3.5 w-3.5" />, count: safetyTabCount },
+    { key: "incident", label: "Incident + ANPR", icon: <Zap className="h-3.5 w-3.5" />, count: incidentTabCount },
     { key: "evidence", label: "Evidence", icon: <Film className="h-3.5 w-3.5" />, count: allEvents.filter((e) => Boolean(e.evidenceUrl)).length },
   ];
 
@@ -2102,6 +2696,7 @@ function VideoWorkspace({
             events={allEvents}
             seekToTime={seekToTime}
             onEventSelect={handleEventSelect}
+            selectedEvent={selectedEvent}
             annotatedStreams={{
               road: statusData?.annotated_road_path,
               traffic: statusData?.annotated_traffic_path,
@@ -2109,6 +2704,8 @@ function VideoWorkspace({
               incident: statusData?.annotated_incident_path,
             }}
             activeModule={activeModule}
+            streamKey={playerStreamKey}
+            onStreamKeyChange={setPlayerStreamKey}
           />
 
           {/* Sub-Tab View Content */}
@@ -2129,9 +2726,11 @@ function VideoWorkspace({
             <RoadTab
               video={video}
               events={allEvents}
+              statusData={statusData}
               onEventSelect={handleEventSelect}
               selectedEvent={selectedEvent}
               onTriggerAnalysis={() => handleTriggerAnalysis("road")}
+              onSelectStream={(k) => setPlayerStreamKey(k)}
             />
           )}
 
@@ -2140,9 +2739,11 @@ function VideoWorkspace({
               video={video}
               events={allEvents}
               jobResults={jobResults}
+              statusData={statusData}
               onEventSelect={handleEventSelect}
               selectedEvent={selectedEvent}
               onTriggerAnalysis={() => handleTriggerAnalysis("traffic")}
+              onSelectStream={(k) => setPlayerStreamKey(k)}
             />
           )}
 
@@ -2162,9 +2763,11 @@ function VideoWorkspace({
             <IncidentTab
               video={video}
               events={allEvents}
+              statusData={statusData}
               onEventSelect={handleEventSelect}
               selectedEvent={selectedEvent}
               onTriggerAnalysis={() => handleTriggerAnalysis("incident")}
+              onSelectStream={(k) => setPlayerStreamKey(k)}
             />
           )}
 
@@ -2241,7 +2844,7 @@ function VideoWorkspace({
                       src={
                         selectedEvent.evidenceUrl.startsWith("http")
                           ? selectedEvent.evidenceUrl
-                          : `${env.backendUrl}${selectedEvent.evidenceUrl}`
+                          : `${env.backendUrl}${selectedEvent.evidenceUrl.startsWith("/") ? "" : "/"}${selectedEvent.evidenceUrl}`
                       }
                       alt="Event evidence"
                       className="w-full h-full object-contain"
@@ -2326,6 +2929,12 @@ export function VideosPage() {
     await refresh();
     if (uploaded) {
       setSelectedVideo(uploaded);
+      try {
+        await startProcessing(uploaded.id, { mode: "multi_engine", force_reprocess: true });
+        await refresh();
+      } catch (err) {
+        console.error("Auto-trigger processing error:", err);
+      }
     }
   };
 

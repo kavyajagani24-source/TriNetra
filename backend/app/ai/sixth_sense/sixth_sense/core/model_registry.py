@@ -72,10 +72,22 @@ class ModelRegistry:
         model_name = self.cfg.get("road_damage_detector", _ROAD_DAMAGE_HF_MODEL)
 
         weight_path = None
-        if local_path and Path(local_path).exists():
-            weight_path = local_path
-            logger.info("Road damage model: using local weights at %s", local_path)
-        else:
+        candidates = []
+        if local_path:
+            candidates.append(Path(local_path))
+            candidates.append(Path(__file__).parents[2] / local_path)
+            candidates.append(Path(__file__).parents[2] / "models" / Path(local_path).name)
+        candidates.append(Path(r"C:\Users\dhruv\.gemini\antigravity\scratch\sixth_sense\models\yolo12s_RDD2022_best.pt"))
+        candidates.append(Path(r"backend\yolo12s_RDD2022_best.pt"))
+        candidates.append(Path(r"yolo12s_RDD2022_best.pt"))
+
+        for cand in candidates:
+            if cand and cand.exists():
+                weight_path = str(cand.resolve())
+                logger.info("Road damage model: using local weights at %s", weight_path)
+                break
+
+        if weight_path is None:
             weight_path = self._try_hf_download(model_name)
 
         if weight_path is None:

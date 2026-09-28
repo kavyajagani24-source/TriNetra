@@ -178,9 +178,18 @@ export interface IncidentCandidate {
   trackId: string;
   plateCandidate: string;
   plateConfidence: number;
-  supportingFrames: number;
-  status: "human_review" | "proposal_approved" | "rejected" | "flagged";
-  evidence?: Partial<EvidenceFrame> & { src?: string; timestamp?: string; frameNumber?: number; labels?: string[] };
+  status: "human_review" | "proposal_approved" | "rejected" | "flagged" | "confirmed" | "dismissed" | "closed";
+  evidence?: Partial<EvidenceFrame> & { src?: string; timestamp?: string; frameNumber?: number; labels?: string[]; busId?: string };
+  evidencePackage?: {
+    before?: string;
+    during?: string;
+    after?: string;
+    annotated_video?: string;
+    manifest?: string;
+  };
+  statement?: string;
+  isLiveRun?: boolean;
+  runId?: string;
 }
 
 export interface AppNotification {

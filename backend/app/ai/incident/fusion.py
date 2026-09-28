@@ -129,27 +129,28 @@ class EvidenceFusionEngine:
         near_flag = bool(s["near_collision_flag"])
 
         # Determine Operational Tier
-        if pairwise >= 0.865:
+        if pairwise >= 0.880 and (has_decel or max_iou >= 0.15 or has_motion):
             op_tier = "DISPATCH_EMERGENCY"
-        elif pairwise >= 0.750:
+        elif (pairwise >= 0.780 and (has_decel or max_iou >= 0.10 or has_motion)) or pairwise >= 0.90:
             op_tier = "OPERATOR_REVIEW"
         else:
             op_tier = "NORMAL_TRAFFIC"
 
         # Determine Collision Detection:
-        # Tier 1 (DISPATCH_EMERGENCY): pairwise >= 0.865
-        # Tier 2 (OPERATOR_REVIEW): pairwise >= 0.750 with physical contact/deceleration corroboration, or pairwise >= 0.780
-        is_coll = (pairwise >= 0.820) or (pairwise >= 0.750 and (has_iou or has_decel or has_motion or max_iou > 0.01)) or (pairwise >= 0.780)
+        # Require physical contact/deceleration corroboration OR extreme pairwise score with corroboration
+        is_coll = (pairwise >= 0.92 and (has_decel or max_iou >= 0.10 or has_motion)) or \
+                  (pairwise >= 0.82 and (has_decel or max_iou >= 0.15)) or \
+                  (pairwise >= 0.85 and has_decel and max_iou >= 0.08)
 
         # Corroborated Fused Incident Evidence Score (Non-Vetoing)
-        boost = (0.04 if (has_iou or max_iou > 0.01) else 0.0) + (0.02 if has_motion else 0.0) + (0.02 if has_decel else 0.0)
+        boost = (0.04 if (has_iou and max_iou >= 0.05) else 0.0) + (0.02 if has_motion else 0.0) + (0.02 if has_decel else 0.0)
         fused = round(min(0.95, max(pairwise, pairwise + boost if is_coll else pairwise)), 3)
 
         if is_coll:
             collision_class = "COLLISION_CANDIDATE"
             status = "COLLISION_CANDIDATE" if op_tier == "DISPATCH_EMERGENCY" else "REVIEW_REQUIRED"
             corrob_items = []
-            if has_iou:
+            if has_iou and max_iou >= 0.05:
                 corrob_items.append(f"bbox IoU={max_iou:.3f}")
             if has_decel:
                 corrob_items.append("abrupt deceleration")
@@ -157,7 +158,7 @@ class EvidenceFusionEngine:
                 corrob_items.append("optical flow burst")
             c_str = ", ".join(corrob_items) if corrob_items else "kinematic interaction"
             reason = f"Collision candidate detected (Pairwise={pairwise:.3f}, Tier={op_tier}, Corroboration: {c_str})"
-        elif pairwise >= 0.60 or near_flag:
+        elif pairwise >= 0.70 or near_flag:
             collision_class = "NEAR_COLLISION"
             status = "REVIEW_REQUIRED"
             reason = f"Near-collision / dense perspective overlap flagged for review (Pairwise={pairwise:.3f})"

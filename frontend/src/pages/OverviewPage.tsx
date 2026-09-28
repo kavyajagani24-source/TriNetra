@@ -105,44 +105,31 @@ export function OverviewPage() {
           </div>
         )}
 
-        {/* AI Quick Navigation & Status Strip */}
+        {/* Command Center Quick Navigation & Status Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <Link
-            to="/roads"
-            className="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-card hover:border-primary/50 hover:bg-muted/50 transition-all group shadow-xs"
-          >
-            <div className="p-2 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/20">
-              <AlertTriangle className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <span className="font-semibold text-xs text-foreground block truncate">Road & Pothole AI</span>
-              <span className="text-[10px] text-muted-foreground">YOLOv12s RDD2022</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/traffic"
-            className="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-card hover:border-primary/50 hover:bg-muted/50 transition-all group shadow-xs"
-          >
-            <div className="p-2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500/20">
-              <Activity className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <span className="font-semibold text-xs text-foreground block truncate">Traffic Flow AI</span>
-              <span className="text-[10px] text-muted-foreground">YOLO11x + DIoU Tracker</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/safety"
+            to="/videos"
             className="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-card hover:border-primary/50 hover:bg-muted/50 transition-all group shadow-xs"
           >
             <div className="p-2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20">
-              <Shield className="h-4 w-4" />
+              <Video className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <span className="font-semibold text-xs text-foreground block truncate">Safety Intelligence</span>
-              <span className="text-[10px] text-muted-foreground">Pedestrians & Near-Miss</span>
+              <span className="font-semibold text-xs text-foreground block truncate">Video Processing</span>
+              <span className="text-[10px] text-muted-foreground">Multi-Engine AI Pipeline</span>
+            </div>
+          </Link>
+
+          <Link
+            to="/city-map"
+            className="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-card hover:border-primary/50 hover:bg-muted/50 transition-all group shadow-xs"
+          >
+            <div className="p-2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500/20">
+              <MapPin className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="font-semibold text-xs text-foreground block truncate">City Map</span>
+              <span className="text-[10px] text-muted-foreground">Spatial GIS Intelligence</span>
             </div>
           </Link>
 
@@ -154,8 +141,21 @@ export function OverviewPage() {
               <ShieldAlert className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <span className="font-semibold text-xs text-foreground block truncate">Incident & ANPR AI</span>
+              <span className="font-semibold text-xs text-foreground block truncate">Incidents & ANPR</span>
               <span className="text-[10px] text-muted-foreground">9-Stage Fusion Engine</span>
+            </div>
+          </Link>
+
+          <Link
+            to="/action-center"
+            className="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-card hover:border-primary/50 hover:bg-muted/50 transition-all group shadow-xs"
+          >
+            <div className="p-2 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/20">
+              <Wrench className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="font-semibold text-xs text-foreground block truncate">Action Center</span>
+              <span className="text-[10px] text-muted-foreground">Municipal Work Orders</span>
             </div>
           </Link>
         </div>

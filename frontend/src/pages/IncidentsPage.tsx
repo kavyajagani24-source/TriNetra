@@ -56,32 +56,46 @@ export function IncidentsPage() {
   const liveIncidentCandidates = useMemo<IncidentCandidate[]>(() => {
     return liveAlerts.map((a) => {
       const runId = a.incident_id.replace(/^INC_/, "");
+      const trackId = a.vehicle?.track_ids?.length ? a.vehicle.track_ids.join(", ") : "0";
       return {
         id: a.incident_id,
         type: a.incident_type === "COLLISION_CANDIDATE"
           ? "Collision Candidate"
           : a.incident_type === "HIT_AND_RUN_CANDIDATE"
           ? "Hit-and-Run Candidate"
-          : a.incident_type === "ABNORMAL_DRIVING_CANDIDATE"
+          : a.incident_type === "ABNORMAL_DRIVING_CANDIDATE" || a.incident_type === "RASH_DRIVING"
           ? "Rash Driving Candidate"
+          : a.incident_type === "NEAR_COLLISION"
+          ? "Near Collision / Proximity Pass"
           : a.incident_type,
         location: a.gps
           ? `GPS: ${a.gps.latitude.toFixed(4)}, ${a.gps.longitude.toFixed(4)}`
-          : "Corridor Segment (GPS unavailable)",
-        at: a.timestamp || new Date().toISOString().slice(11, 19),
+          : "Transit Corridor (Live Ingestion)",
+        at: a.timestamp ? new Date(a.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
         confidence: a.confidence,
-        vehicleType: a.vehicle?.class_name || (a.vehicle?.track_id ? `Track #${a.vehicle.track_id}` : "Motor Vehicle"),
+        vehicleType: a.vehicle?.role || "Motor Vehicle",
+        trackId: `Track #${trackId}`,
         plateCandidate: a.anpr?.status === "DETECTED" ? a.anpr.plate_number : "Plate not readable",
+        plateConfidence: a.anpr?.plate_confidence || 0,
         status: a.status === "REVIEW_REQUIRED" ? "human_review" : (a.status as any) || "human_review",
         isLiveRun: true,
         runId,
-      } as IncidentCandidate & { isLiveRun?: boolean; runId?: string };
+        evidencePackage: a.evidence,
+        statement: a.statement,
+        evidence: {
+          busId: "SURVEY-CAM-01",
+          image: a.evidence?.during ? (a.evidence.during.startsWith("http") ? a.evidence.during : `http://localhost:8000/${a.evidence.during.replace(/^\/+/, "")}`) : undefined,
+          detections: [],
+        },
+      } as IncidentCandidate;
     });
   }, [liveAlerts]);
 
-  // Combine live runs (first) + baseline benchmark candidates
+  // Combine live runs (first) + unique baseline benchmark candidates
   const allIncidents = useMemo(() => {
-    return [...liveIncidentCandidates, ...mockIncidents];
+    const liveIds = new Set(liveIncidentCandidates.map((i) => i.id));
+    const uniqueMocks = mockIncidents.filter((m) => !liveIds.has(m.id));
+    return [...liveIncidentCandidates, ...uniqueMocks];
   }, [liveIncidentCandidates, mockIncidents]);
 
   // Filtered list

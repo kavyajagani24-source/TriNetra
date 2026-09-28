@@ -154,47 +154,64 @@ export function IssueDetailsPanel({
       </header>
 
       <div className="p-3">
-        <Tabs defaultValue="current">
-          <TabsList className="h-7 w-full">
-            <TabsTrigger value="before" className="flex-1 text-[11px]">
-              Before
-            </TabsTrigger>
-            <TabsTrigger value="current" className="flex-1 text-[11px]">
-              Current
-            </TabsTrigger>
-            <TabsTrigger value="verify" className="flex-1 text-[11px]">
-              Verification
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="before" className="mt-2">
-            <DetectionOverlay
-              frame={issue.evidence.before}
-              options={{ boxes: true, segmentation: true, trackIds: false, privacyMask: true }}
-              className="aspect-[4/3]"
-              compact
-            />
-          </TabsContent>
-          <TabsContent value="current" className="mt-2">
-            <DetectionOverlay
-              frame={issue.evidence.current}
-              options={{ boxes: true, segmentation: true, trackIds: false, privacyMask: true }}
-              className="aspect-[4/3]"
-              compact
-            />
-          </TabsContent>
-          <TabsContent value="verify" className="mt-2">
-            {issue.evidence.verification ? (
-              <BeforeAfterSlider
-                before={issue.evidence.before}
-                after={issue.evidence.verification}
+        {issue.evidenceUrl ? (
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Live Inference Evidence</span>
+            <div className="aspect-[4/3] w-full rounded-md border border-border overflow-hidden bg-black/60 flex items-center justify-center">
+              <img
+                src={
+                  issue.evidenceUrl.startsWith("http")
+                    ? issue.evidenceUrl
+                    : `http://localhost:8000${issue.evidenceUrl.startsWith("/") ? "" : "/"}${issue.evidenceUrl}`
+                }
+                alt={issue.title}
+                className="h-full w-full object-contain"
               />
-            ) : (
-              <p className="rounded border border-dashed border-border px-3 py-6 text-center text-[11px] text-muted-foreground">
-                Waiting for re-observation from a subsequent bus pass.
-              </p>
-            )}
-          </TabsContent>
-        </Tabs>
+            </div>
+          </div>
+        ) : (
+          <Tabs defaultValue="current">
+            <TabsList className="h-7 w-full">
+              <TabsTrigger value="before" className="flex-1 text-[11px]">
+                Before
+              </TabsTrigger>
+              <TabsTrigger value="current" className="flex-1 text-[11px]">
+                Current
+              </TabsTrigger>
+              <TabsTrigger value="verify" className="flex-1 text-[11px]">
+                Verification
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="before" className="mt-2">
+              <DetectionOverlay
+                frame={issue?.evidence?.before}
+                options={{ boxes: true, segmentation: true, trackIds: false, privacyMask: true }}
+                className="aspect-[4/3]"
+                compact
+              />
+            </TabsContent>
+            <TabsContent value="current" className="mt-2">
+              <DetectionOverlay
+                frame={issue?.evidence?.current}
+                options={{ boxes: true, segmentation: true, trackIds: false, privacyMask: true }}
+                className="aspect-[4/3]"
+                compact
+              />
+            </TabsContent>
+            <TabsContent value="verify" className="mt-2">
+              {issue?.evidence?.verification ? (
+                <BeforeAfterSlider
+                  before={issue.evidence.before!}
+                  after={issue.evidence.verification}
+                />
+              ) : (
+                <p className="rounded border border-dashed border-border px-3 py-6 text-center text-[11px] text-muted-foreground">
+                  Waiting for re-observation from a subsequent bus pass.
+                </p>
+              )}
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 px-3 pb-3">

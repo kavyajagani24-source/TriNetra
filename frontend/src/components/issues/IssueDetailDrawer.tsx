@@ -177,30 +177,44 @@ export function IssueDetailDrawer({ issue, onClose }: IssueDetailDrawerProps) {
             </div>
 
             <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-950">
-              {activeTab === "current" && (
+              {issue.evidenceUrl ? (
+                <div className="aspect-[16/9] w-full flex items-center justify-center bg-black">
+                  <img
+                    src={
+                      issue.evidenceUrl.startsWith("http")
+                        ? issue.evidenceUrl
+                        : `http://localhost:8000${issue.evidenceUrl.startsWith("/") ? issue.evidenceUrl : `/${issue.evidenceUrl}`}`
+                    }
+                    alt={issue.title}
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+              ) : activeTab === "current" && issue.evidence?.current ? (
                 <DetectionOverlay
                   frame={issue.evidence.current}
                   options={{ boxes: true, segmentation: true, trackIds: false, privacyMask: true }}
                   className="aspect-[16/9] w-full"
                 />
-              )}
-              {activeTab === "before" && (
+              ) : activeTab === "before" && issue.evidence?.before ? (
                 <DetectionOverlay
                   frame={issue.evidence.before}
                   options={{ boxes: true, segmentation: true, trackIds: false, privacyMask: true }}
                   className="aspect-[16/9] w-full"
                 />
-              )}
-              {activeTab === "verification" && issue.evidence.verification && (
+              ) : activeTab === "verification" && issue.evidence?.verification ? (
                 <BeforeAfterSlider
                   before={issue.evidence.before}
                   after={issue.evidence.verification}
                   className="aspect-[16/9] w-full"
                 />
+              ) : (
+                <div className="aspect-[16/9] w-full flex items-center justify-center bg-slate-900 text-slate-400 p-8 text-center">
+                  <p className="text-xs">Evidence frame snapshot undergoing asynchronous pipeline caching.</p>
+                </div>
               )}
             </div>
             <p className="text-[11px] text-slate-500 italic">
-              * Automatically processed with privacy masking (face & license plate blurring).
+              * Processed with automated edge privacy masking (face & license plate protection).
             </p>
           </div>
 

@@ -43,8 +43,8 @@ urban_mvp:
   # Temporal grouping for observations
   observation:
     max_gap_frames: 15          # Detections within this gap belong to same observation
-    min_spatial_overlap_iou: 0.3   # Minimum IoU to link detections across frames
-    min_detections: 3           # Minimum detections to confirm an observation (HEURISTIC)
+    min_spatial_overlap_iou: 0.15  # Minimum IoU to link detections across frames
+    min_detections: 1           # Allow single-frame confirmed road defect observation from moving bus
 
   # Track confirmation
   tracking:

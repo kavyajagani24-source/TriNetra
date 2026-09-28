@@ -95,19 +95,91 @@ export function IncidentDetailDrawer({ incident, onClose }: IncidentDetailDrawer
             </div>
           </div>
 
-          {/* Video Frame Evidence */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-              <Eye className="h-4 w-4 text-blue-600" />
-              Evidence Frame & Track Bounding
+          {/* Video Frame & Annotated Evidence */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Eye className="h-4 w-4 text-emerald-600" />
+                Multi-Stage Incident Evidence
+              </span>
+              {incident.evidencePackage?.annotated_video && (
+                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-semibold">
+                  Annotated Stream Ready
+                </span>
+              )}
             </h3>
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-950">
-              <DetectionOverlay
-                frame={incident.evidence}
-                options={{ boxes: true, segmentation: true, trackIds: true, privacyMask: true }}
-                className="aspect-[16/9] w-full"
-              />
-            </div>
+
+            {/* Playable Annotated Incident Video */}
+            {incident.evidencePackage?.annotated_video && (
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-slate-600 block">Annotated Video Sequence</span>
+                <div className="overflow-hidden rounded-lg border border-slate-300 bg-black aspect-video flex items-center justify-center">
+                  <video
+                    src={`http://localhost:8000/${incident.evidencePackage.annotated_video.replace(/^\/+/, "")}`}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 3-Stage Before / During / After Keyframes */}
+            {incident.evidencePackage ? (
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[11px] font-semibold text-slate-600 block">Triage Keyframes (Before • Impact / Action • After)</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Before */}
+                  <div className="rounded border border-slate-200 overflow-hidden bg-slate-900">
+                    <div className="p-1 bg-slate-800 text-[10px] font-mono text-slate-300 font-bold text-center">BEFORE</div>
+                    {incident.evidencePackage.before ? (
+                      <img
+                        src={`http://localhost:8000/${incident.evidencePackage.before.replace(/^\/+/, "")}`}
+                        alt="Before keyframe"
+                        className="aspect-video w-full object-cover"
+                      />
+                    ) : (
+                      <div className="aspect-video w-full flex items-center justify-center text-[10px] text-slate-500">N/A</div>
+                    )}
+                  </div>
+                  {/* During (Impact/Interaction) */}
+                  <div className="rounded border-2 border-amber-400 overflow-hidden bg-slate-900">
+                    <div className="p-1 bg-amber-500 text-[10px] font-mono text-slate-900 font-bold text-center">DURING / IMPACT</div>
+                    {incident.evidencePackage.during ? (
+                      <img
+                        src={`http://localhost:8000/${incident.evidencePackage.during.replace(/^\/+/, "")}`}
+                        alt="During keyframe"
+                        className="aspect-video w-full object-cover"
+                      />
+                    ) : (
+                      <div className="aspect-video w-full flex items-center justify-center text-[10px] text-slate-500">N/A</div>
+                    )}
+                  </div>
+                  {/* After */}
+                  <div className="rounded border border-slate-200 overflow-hidden bg-slate-900">
+                    <div className="p-1 bg-slate-800 text-[10px] font-mono text-slate-300 font-bold text-center">AFTER</div>
+                    {incident.evidencePackage.after ? (
+                      <img
+                        src={`http://localhost:8000/${incident.evidencePackage.after.replace(/^\/+/, "")}`}
+                        alt="After keyframe"
+                        className="aspect-video w-full object-cover"
+                      />
+                    ) : (
+                      <div className="aspect-video w-full flex items-center justify-center text-[10px] text-slate-500">N/A</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : incident.evidence?.image ? (
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-950">
+                <DetectionOverlay
+                  frame={incident.evidence as any}
+                  options={{ boxes: true, segmentation: true, trackIds: true, privacyMask: true }}
+                  className="aspect-[16/9] w-full"
+                />
+              </div>
+            ) : null}
           </div>
 
           {/* Telemetry & ANPR Information */}
@@ -116,6 +188,11 @@ export function IncidentDetailDrawer({ incident, onClose }: IncidentDetailDrawer
               <Truck className="h-4 w-4 text-slate-600" />
               Vehicle & ANPR License Plate Telemetry
             </h3>
+            {incident.statement && (
+              <div className="p-2.5 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium">
+                {incident.statement}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Vehicle Classification</span>
@@ -123,8 +200,8 @@ export function IncidentDetailDrawer({ incident, onClose }: IncidentDetailDrawer
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">ANPR Plate Candidate</span>
-                <span className="font-data font-bold text-blue-700">{incident.plateCandidate || "MH01AB1234"}</span>
-                {incident.plateConfidence && (
+                <span className="font-data font-bold text-blue-700">{incident.plateCandidate || "Plate not readable"}</span>
+                {Boolean(incident.plateConfidence) && (
                   <span className="text-[10px] text-slate-500 block mt-0.5">
                     ({(incident.plateConfidence * 100).toFixed(0)}% OCR match)
                   </span>
@@ -132,15 +209,15 @@ export function IncidentDetailDrawer({ incident, onClose }: IncidentDetailDrawer
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Tracking ID</span>
-                <span className="font-data text-slate-800">{incident.trackId}</span>
+                <span className="font-data text-slate-800">{incident.trackId || "Active Tracks"}</span>
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Supporting Keyframes</span>
-                <span className="font-semibold text-slate-800">{incident.supportingFrames} frames</span>
+                <span className="font-semibold text-slate-800">{incident.supportingFrames || 3} frames</span>
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Ingesting Bus</span>
-                <span className="font-data text-slate-800">{incident.evidence.busId}</span>
+                <span className="font-data text-slate-800">{incident.evidence?.busId || "SURVEY-CAM"}</span>
               </div>
               <div className="rounded border border-slate-200 bg-slate-50/50 p-2.5">
                 <span className="text-slate-500 block text-[11px]">Timestamp</span>

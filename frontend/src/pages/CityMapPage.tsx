@@ -48,9 +48,11 @@ export function CityMapPage() {
   };
 
   const handleSelectIssue = (issue: any) => {
-    const issueObj = typeof issue === "string"
-      ? (issues.find((i) => i.id === issue) as any) || (demoMode ? ANDHERI_ISSUES.find((i) => i.id === issue) : null)
-      : issue;
+    const issueId = typeof issue === "string" ? issue : issue?.id;
+    const issueObj =
+      (issues.find((i) => i.id === issueId) as any) ||
+      ANDHERI_ISSUES.find((i) => i.id === issueId) ||
+      (typeof issue === "object" ? issue : null);
     if (!issueObj) return;
     setSelectedIssue(issueObj);
     const road = ANDHERI_ROADS.find((r) => r.id === issueObj.roadId) ?? null;

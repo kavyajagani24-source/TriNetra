@@ -70,7 +70,8 @@ class _ActiveGroup:
         evidence_ref: Optional[str],
     ) -> Optional[Observation]:
         """Convert group to Observation, or None if too few detections."""
-        if len(self.detections) < min_detections:
+        eff_min = 1 if (self.event_type in (EventType.POTHOLE, EventType.ROAD_CRACK, EventType.ROAD_DAMAGE) or (self.best_det and self.best_det.confidence >= 0.20)) else min_detections
+        if len(self.detections) < eff_min:
             return None
 
         best = self.best_det
