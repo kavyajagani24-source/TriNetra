@@ -214,18 +214,22 @@ class UrbanAIPipeline:
                     run_id=f"{job_id}_traffic",
                 )
                 t_traffic = time.monotonic() - t0
-                engine_statuses["traffic"] = {
-                    "status": traffic_result.status,
-                    "runtime_sec": round(t_traffic, 2),
-                    "tracks_count": len(traffic_result.detections),
-                    "annotated_video": traffic_result.annotated_video_path,
-                }
                 annotated_paths["traffic"] = self.evidence_normalizer.normalize_video_url(
                     traffic_result.annotated_video_path
                 )
                 traffic_summary = self.traffic_adapter.to_traffic_summary(traffic_result)
                 total_unique_vehicles = traffic_summary.unique_vehicle_count
                 counts_by_class = traffic_summary.counts_by_class
+                # Use unique_vehicle_count (deduplicated, merged tracks) as the authoritative
+                # vehicle count — NOT len(detections) which may include track fragments
+                engine_statuses["traffic"] = {
+                    "status": traffic_result.status,
+                    "runtime_sec": round(t_traffic, 2),
+                    "tracks_count": total_unique_vehicles,
+                    "raw_track_fragments": len(traffic_result.detections),
+                    "annotated_video": traffic_result.annotated_video_path,
+                    "counts_by_class": counts_by_class,
+                }
 
                 density_enum_map = {
                     "LOW": DensityLevel.LOW,
