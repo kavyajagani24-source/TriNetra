@@ -70,11 +70,18 @@ export async function deleteVideo(id: string): Promise<void> {
 }
 
 export async function startProcessing(
-  videoId: string
-): Promise<{ job_id: string; video_id: string; status: string; progress_percentage: number }> {
+  videoId: string,
+  options?: {
+    mode?: string | undefined;
+    force_reprocess?: boolean | undefined;
+  }
+): Promise<{ job_id: string; video_id: string; status: string; progress_percentage: number; mode?: string }> {
   const response = await apiClient.post<
-    ApiResponse<{ job_id: string; video_id: string; status: string; progress_percentage: number }>
-  >(`/videos/${videoId}/process`);
+    ApiResponse<{ job_id: string; video_id: string; status: string; progress_percentage: number; mode?: string }>
+  >(`/videos/${videoId}/process`, {
+    mode: options?.mode || "multi_engine",
+    force_reprocess: options?.force_reprocess ?? true,
+  });
   return response.data.data;
 }
 

@@ -123,18 +123,23 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { ThemeProvider } from "@/state/theme";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppStoreProvider>
-        <TooltipProvider delayDuration={200}>
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <Outlet />
-          <Toaster position="bottom-right" />
-        </TooltipProvider>
-      </AppStoreProvider>
+      <ThemeProvider>
+        <AppStoreProvider>
+          <TooltipProvider delayDuration={200}>
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <Outlet />
+            <Toaster position="bottom-right" />
+          </TooltipProvider>
+        </AppStoreProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
+

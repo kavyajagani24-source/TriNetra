@@ -50,11 +50,13 @@ class JobResultsResponse(BaseModel):
     counts_by_class: Dict[str, int]
     peak_active_vehicles: int
     avg_active_vehicles: float
-    avg_pixel_speed: float
+    avg_pixel_speed: float = 0.0
+    mode: Optional[str] = "multi_engine"
     engine_statuses: Optional[dict] = None
     annotated_road_path: Optional[str] = None
     annotated_traffic_path: Optional[str] = None
     annotated_safety_path: Optional[str] = None
+    annotated_incident_path: Optional[str] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None

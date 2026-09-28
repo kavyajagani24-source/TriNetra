@@ -2,7 +2,7 @@
 UrbanEye AI — YOLO Object Detector
 
 Wraps Ultralytics YOLO (v11/v8) to provide clean object detection
-and integrated ByteTrack tracking on individual video frames.
+and multi-frame object tracking (UrbianTracker) on video frames.
 """
 
 from __future__ import annotations
@@ -125,7 +125,7 @@ class YOLODetector:
 
     def detect_and_track(self, frame: np.ndarray, persist: bool = True) -> List[TrackedDetection]:
         """
-        Run detection and ByteTrack tracking simultaneously.
+        Run detection and multi-frame tracking simultaneously.
         """
         if frame is None or frame.size == 0:
             return []

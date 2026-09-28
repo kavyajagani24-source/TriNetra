@@ -57,3 +57,7 @@ alembic/versions/__pycache__/
 
 # Docker
 .dockerignore
+
+# Dynamic AI API runs and outputs
+outputs/
+

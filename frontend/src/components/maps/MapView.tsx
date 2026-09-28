@@ -18,6 +18,8 @@ import type { Bus, Issue } from "@/types";
 import type { LayerState } from "@/state/app-store";
 
 export interface AndheriMapProps {
+  issues?: any[] | undefined;
+  buses?: any[] | undefined;
   showRoadCondition?: boolean | undefined;
   showIssues?: boolean | undefined;
   showFleet?: boolean | undefined;
@@ -26,11 +28,14 @@ export interface AndheriMapProps {
   selectedRoadId?: string | null | undefined;
   selectedIssueId?: string | null | undefined;
   onSelectRoad?: ((road: AndheriRoad) => void) | undefined;
-  onSelectIssue?: ((issue: AndheriIssue) => void) | undefined;
+  onSelectIssue?: ((issueOrId: any) => void) | undefined;
+  demoMode?: boolean | undefined;
   className?: string | undefined;
 }
 
 export function AndheriIntelligenceMap({
+  issues,
+  buses,
   showRoadCondition = true,
   showIssues = true,
   showFleet = false,
@@ -40,20 +45,22 @@ export function AndheriIntelligenceMap({
   selectedIssueId,
   onSelectRoad,
   onSelectIssue,
+  demoMode = false,
   className,
 }: AndheriMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const issueMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const issueMarkersRef = useRef<Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement }>>(new Map());
   const busMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const hoveredRoadRef = useRef<string | null>(null);
 
   // Keep latest callbacks in refs to avoid re-triggering map useEffect
   const onSelectRoadRef = useRef(onSelectRoad);
   onSelectRoadRef.current = onSelectRoad;
-
   const onSelectIssueRef = useRef(onSelectIssue);
   onSelectIssueRef.current = onSelectIssue;
+  const selectedIssueIdRef = useRef(selectedIssueId);
+  selectedIssueIdRef.current = selectedIssueId;
 
   // Initialize Mapbox map once
   useEffect(() => {
@@ -281,8 +288,8 @@ export function AndheriIntelligenceMap({
 
     return () => {
       ro.disconnect();
-      issueMarkersRef.current.forEach((m) => m.remove());
-      issueMarkersRef.current = [];
+      issueMarkersRef.current.forEach(({ marker }) => marker.remove());
+      issueMarkersRef.current.clear();
       busMarkersRef.current.forEach((m) => m.remove());
       busMarkersRef.current.clear();
       map.remove();
@@ -332,70 +339,114 @@ export function AndheriIntelligenceMap({
   }, [showObservations]);
 
   // Render Clean Road-Aligned Issue Markers (Layer D)
-  // SECTIONS 5 & 6: Shape + semantic color ONLY. No P1/P2/P3 text labels.
+  // Maintains persistent marker pool so markers never flicker or disappear on click
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    const renderMarkers = () => {
-      issueMarkersRef.current.forEach((m) => m.remove());
-      issueMarkersRef.current = [];
+    const syncMarkers = () => {
+      if (!showIssues) {
+        issueMarkersRef.current.forEach(({ marker }) => marker.remove());
+        issueMarkersRef.current.clear();
+        return;
+      }
 
-      if (!showIssues) return;
+      const items = demoMode ? (issues && issues.length > 0 ? issues : ANDHERI_ISSUES) : (issues || []);
+      const currentIds = new Set<string>();
 
-      ANDHERI_ISSUES.forEach((issue) => {
-        const isSelected = issue.id === selectedIssueId;
-        const color = SEVERITY_MARKER_COLOR[issue.severity];
-        const isCritical = issue.severity === "critical";
-        const isMajor = issue.severity === "major";
-        const size = isSelected ? 24 : isCritical ? 20 : isMajor ? 17 : 15;
+      items.forEach((issue: any) => {
+        const lat = issue.position?.lat;
+        const lng = issue.position?.lng;
+        // Zero-fabrication: skip invalid or missing GPS coordinates
+        if (typeof lat !== "number" || typeof lng !== "number" || isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
+          return;
+        }
+
+        const id = String(issue.id);
+        currentIds.add(id);
+
+        if (issueMarkersRef.current.has(id)) {
+          const { marker } = issueMarkersRef.current.get(id)!;
+          marker.setLngLat([lng, lat]);
+          return;
+        }
+
+        const sev = (issue.severity?.toLowerCase() || "moderate") as keyof typeof SEVERITY_MARKER_COLOR;
+        const color = SEVERITY_MARKER_COLOR[sev] || "#eab308";
+        const isCritical = sev === "critical";
+        const isMajor = sev === "major";
+        const size = isCritical ? 20 : isMajor ? 17 : 15;
 
         const el = document.createElement("div");
         el.className = "trinetra-issue-marker";
+        el.dataset.issueId = id;
         el.style.cssText = `
           width: ${size}px;
           height: ${size}px;
           cursor: pointer;
-          transition: transform 0.15s ease;
+          transition: transform 0.15s ease, filter 0.15s ease;
           display: flex;
           align-items: center;
           justify-content: center;
           transform-origin: center center;
-          ${isSelected ? "filter: drop-shadow(0 0 4px #FFFFFF);" : ""}
         `;
 
-        // Clean SVG warning triangle (No P1/P2/P3 text!)
         el.innerHTML = `
-          <svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${color}" stroke="#FFFFFF" stroke-width="${isSelected ? 2.2 : 1.4}" stroke-linejoin="round" style="display:block; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.35));">
+          <svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${color}" stroke="#FFFFFF" stroke-width="1.4" stroke-linejoin="round" style="display:block; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.35));">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
             <line x1="12" y1="9" x2="12" y2="13" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
             <circle cx="12" cy="17" r="1.2" fill="#FFFFFF"/>
           </svg>
         `;
 
-        el.title = `${issue.title} • ${issue.roadName}`;
+        el.title = `${issue.title || issue.name || "Observation"} • ${issue.roadName || issue.road || "Corridor"}`;
 
         el.addEventListener("mouseenter", () => {
-          el.style.transform = "scale(1.22)";
+          if (id !== selectedIssueIdRef.current) el.style.transform = "scale(1.22)";
         });
         el.addEventListener("mouseleave", () => {
-          el.style.transform = isSelected ? "scale(1.15)" : "scale(1.0)";
+          if (id !== selectedIssueIdRef.current) el.style.transform = "scale(1.0)";
         });
         el.addEventListener("click", (e) => {
           e.stopPropagation();
-          if (onSelectIssueRef.current) onSelectIssueRef.current(issue);
+          if (onSelectIssueRef.current) onSelectIssueRef.current(issue.id || issue);
         });
 
         const marker = new mapboxgl.Marker({ element: el, anchor: "center" })
-          .setLngLat([issue.position.lng, issue.position.lat])
+          .setLngLat([lng, lat])
           .addTo(map);
-        issueMarkersRef.current.push(marker);
+
+        issueMarkersRef.current.set(id, { marker, el });
+      });
+
+      // Remove stale markers
+      issueMarkersRef.current.forEach(({ marker }, id) => {
+        if (!currentIds.has(id)) {
+          marker.remove();
+          issueMarkersRef.current.delete(id);
+        }
       });
     };
 
-    if (map.isStyleLoaded()) renderMarkers();
-    else map.once("load", renderMarkers);
-  }, [showIssues, selectedIssueId]);
+    if (map.isStyleLoaded()) syncMarkers();
+    else map.once("load", syncMarkers);
+  }, [showIssues, issues, demoMode]);
+
+  // Separate Selection Styling — NEVER destroys/re-adds markers on click
+  useEffect(() => {
+    issueMarkersRef.current.forEach(({ el }, id) => {
+      const isSelected = id === selectedIssueId;
+      if (isSelected) {
+        el.style.transform = "scale(1.35)";
+        el.style.filter = "drop-shadow(0 0 6px #FFFFFF) drop-shadow(0 0 10px rgba(47,125,87,0.8))";
+        el.style.zIndex = "100";
+      } else {
+        el.style.transform = "scale(1.0)";
+        el.style.filter = "";
+        el.style.zIndex = "1";
+      }
+    });
+  }, [selectedIssueId]);
 
   // Render Subtle Fleet Bus Markers (Layer E)
   // SECTION 22: Subtle vehicle markers, secondary to road intelligence.
@@ -487,12 +538,36 @@ export interface MapViewProps {
   selectedBusId?: string | null | undefined;
   onSelectBus?: ((id: string) => void) | undefined;
   showRoutes?: boolean | undefined;
+  demoMode?: boolean | undefined;
   className?: string | undefined;
   overlay?: React.ReactNode | undefined;
 }
 
-export function MapView({ className }: MapViewProps) {
-  return <AndheriIntelligenceMap className={className} />;
+export function MapView({
+  issues,
+  buses,
+  layers,
+  selectedIssueId,
+  onSelectIssue,
+  selectedBusId,
+  onSelectBus,
+  showRoutes,
+  demoMode = false,
+  className,
+}: MapViewProps) {
+  return (
+    <AndheriIntelligenceMap
+      issues={issues}
+      buses={buses}
+      showIssues={layers ? layers.defects : true}
+      showFleet={layers ? layers.buses : false}
+      showRoadCondition={layers ? layers.roadCondition : true}
+      selectedIssueId={selectedIssueId}
+      onSelectIssue={onSelectIssue}
+      demoMode={demoMode}
+      className={className}
+    />
+  );
 }
 
 // MapLegend component: ONE Authoritative Compact Legend (Section 11)

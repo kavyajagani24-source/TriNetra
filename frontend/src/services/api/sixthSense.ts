@@ -204,3 +204,6 @@ export async function getAiHealth(): Promise<AiHealthResponse> {
   const response = await apiClient.get<{ success: boolean; data: AiHealthResponse }>("/health/ai");
   return response.data.data;
 }
+
+// Re-export Person 4 Incident & ANPR AI
+export * from "./incident";

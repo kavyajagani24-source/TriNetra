@@ -2,7 +2,7 @@
 TriNetra — SafetyModule3Runner
 
 Authoritative runner for SIH2026 Module 3 — Pedestrian and VRU Safety Intelligence.
-Executes Module 3's PipelineRunner (ByteTrack + Trajectory + Risk Engine)
+Executes Module 3's PipelineRunner (VRU Tracking + Trajectory + Risk Engine)
 using frozen checkpoint models/best.pt.
 """
 
@@ -33,6 +33,11 @@ class SafetyModule3Runner:
     def __init__(self, module3_root: Optional[str | Path] = None) -> None:
         self._root: Optional[Path] = Path(module3_root) if module3_root else None
         self._initialized = False
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """Check if SIH2026--Module3 repository is discoverable on this system."""
+        return _resolve_module3_root(strict=False) is not None
 
     def _init(self) -> None:
         """Lazy one-time setup — ensures Module 3 is on sys.path."""

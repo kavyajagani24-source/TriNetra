@@ -1,4 +1,4 @@
-﻿/**
+/**
  * UrbanEye AI â€” Backend API Contracts & Data Models
  *
  * Types mapping directly to the FastAPI responses:
@@ -95,6 +95,7 @@ export type ProcessingStatus =
   | "ROAD_ANALYSIS"
   | "TRAFFIC_ANALYSIS"
   | "SAFETY_ANALYSIS"
+  | "INCIDENT_ANALYSIS"
   | "NORMALIZING"
   | "PERSISTING"
   | "COMPLETED"
@@ -105,6 +106,7 @@ export interface BackendProcessingJob {
   id: string;
   video_id: string;
   status: ProcessingStatus;
+  mode?: string;
   progress_percentage: number;
   frames_processed: number;
   total_frames: number;
@@ -114,6 +116,7 @@ export interface BackendProcessingJob {
   annotated_road_path?: string | null;
   annotated_traffic_path?: string | null;
   annotated_safety_path?: string | null;
+  annotated_incident_path?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
   created_at: string;
@@ -125,6 +128,7 @@ export interface VideoProcessingStatusResponse {
   video_status: VideoStatus;
   active_job_id?: string | null;
   job_status?: ProcessingStatus | null;
+  mode?: string;
   progress_percentage: number;
   frames_processed: number;
   total_frames: number;
@@ -134,6 +138,7 @@ export interface VideoProcessingStatusResponse {
   annotated_road_path?: string | null;
   annotated_traffic_path?: string | null;
   annotated_safety_path?: string | null;
+  annotated_incident_path?: string | null;
 }
 
 // â”€â”€ Camera Safety Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

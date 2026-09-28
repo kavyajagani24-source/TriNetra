@@ -64,10 +64,28 @@ class AnalyticsService:
             "peak_active_vehicles": analytics_summary["peak_active_vehicles"],
             "avg_active_vehicles": analytics_summary["avg_active_vehicles"],
             "avg_pixel_speed": analytics_summary["avg_pixel_speed"],
+            "mode": getattr(job, "mode", "multi_engine"),
             "engine_statuses": getattr(job, "engine_statuses", None),
-            "annotated_road_path": getattr(job, "annotated_road_path", None),
-            "annotated_traffic_path": getattr(job, "annotated_traffic_path", None),
-            "annotated_safety_path": getattr(job, "annotated_safety_path", None),
+            "annotated_road_path": (
+                f"/{getattr(job, 'annotated_road_path').replace('\\', '/').lstrip('/')}"
+                if getattr(job, "annotated_road_path", None)
+                else None
+            ),
+            "annotated_traffic_path": (
+                f"/{getattr(job, 'annotated_traffic_path').replace('\\', '/').lstrip('/')}"
+                if getattr(job, "annotated_traffic_path", None)
+                else None
+            ),
+            "annotated_safety_path": (
+                f"/{getattr(job, 'annotated_safety_path').replace('\\', '/').lstrip('/')}"
+                if getattr(job, "annotated_safety_path", None)
+                else None
+            ),
+            "annotated_incident_path": (
+                f"/{getattr(job, 'annotated_incident_path').replace('\\', '/').lstrip('/')}"
+                if getattr(job, "annotated_incident_path", None)
+                else None
+            ),
             "started_at": job.started_at,
             "completed_at": job.completed_at,
             "error_message": job.error_message,

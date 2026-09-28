@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
-def _resolve_module3_root() -> Path:
+def _resolve_module3_root(strict: bool = True) -> Optional[Path]:
     """
     Resolve SIH2026--Module3 repository root directory.
     Uses settings.MODULE3_ROOT if valid, otherwise auto-discovers sibling directory.
@@ -40,19 +40,26 @@ def _resolve_module3_root() -> Path:
     except Exception:
         pass
 
-    # Auto-discover: this file is at:
-    # urbaneye-ai/backend/app/ai/integrations/safety_module3/config.py
-    # parents[5] is the parent folder containing urbaneye-ai, SIH2026--Module3, The-Sixth-Sense-AI
-    parent = Path(__file__).resolve().parents[5]
-    for candidate_name in ["SIH2026--Module3", "SIH2026-Module3", "safety_module3"]:
-        candidate = parent / candidate_name
+    # Auto-discover candidates:
+    file_path = Path(__file__).resolve()
+    candidates = [
+        file_path.parents[5] / "SIH2026--Module3",
+        file_path.parents[5] / "SIH2026-Module3",
+        file_path.parents[5] / "safety_module3",
+        file_path.parents[4].parent / "SIH2026--Module3",
+        Path(r"C:\Users\dhruv\.gemini\antigravity\scratch\SIH2026--Module3"),
+    ]
+    for candidate in candidates:
         if candidate.exists():
             return candidate
 
-    raise RuntimeError(
-        f"Cannot locate SIH2026--Module3 repository. "
-        f"Set MODULE3_ROOT in .env or place repository at {parent / 'SIH2026--Module3'}"
-    )
+    if strict:
+        parent = file_path.parents[5]
+        raise RuntimeError(
+            f"Cannot locate SIH2026--Module3 repository. "
+            f"Set MODULE3_ROOT in .env or place repository at {parent / 'SIH2026--Module3'}"
+        )
+    return None
 
 
 def _ensure_module3_on_path() -> Path:

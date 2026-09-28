@@ -17,21 +17,21 @@ Tests:
 import numpy as np
 import pytest
 
-from ai.incident.anpr import ANPREngine, PlateResult, TrackANPRResult
-from ai.incident.behavior_engine import BehaviorEngine, TrajectoryPoint
-from ai.incident.calibration import ProbabilityCalibrator, compute_calibration_metrics
-from ai.incident.fusion import EvidenceFusionEngine, FusionResult
-from ai.incident.hit_and_run import HitAndRunResult, HitAndRunStateMachine, IncidentState, TrackObservation
-from ai.incident.interaction_classifier import InteractionClassifier
-from ai.incident.motion_evidence import MotionCorroborator, MotionEvidence
-from ai.incident.pairwise import (
+from app.ai.incident.anpr import ANPREngine, PlateResult, TrackANPRResult
+from app.ai.incident.behavior_engine import BehaviorEngine, TrajectoryPoint
+from app.ai.incident.calibration import ProbabilityCalibrator, compute_calibration_metrics
+from app.ai.incident.fusion import EvidenceFusionEngine, FusionResult
+from app.ai.incident.hit_and_run import HitAndRunResult, HitAndRunStateMachine, IncidentState, TrackObservation
+from app.ai.incident.interaction_classifier import InteractionClassifier
+from app.ai.incident.motion_evidence import MotionCorroborator, MotionEvidence
+from app.ai.incident.pairwise import (
     CLASS_MAP,
     FEATURE_NAMES,
     ID_TO_CLASS,
     PairwiseWindow,
     extract_pairwise_features,
 )
-from ai.incident.schemas import (
+from app.ai.incident.schemas import (
     AbnormalDrivingEvent,
     CollisionCandidate,
     EvidencePacket,

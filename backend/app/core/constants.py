@@ -31,6 +31,7 @@ class ProcessingStatus(str, Enum):
     ROAD_ANALYSIS = "ROAD_ANALYSIS"
     TRAFFIC_ANALYSIS = "TRAFFIC_ANALYSIS"
     SAFETY_ANALYSIS = "SAFETY_ANALYSIS"
+    INCIDENT_ANALYSIS = "INCIDENT_ANALYSIS"
     NORMALIZING = "NORMALIZING"
     PERSISTING = "PERSISTING"
     COMPLETED = "COMPLETED"
@@ -45,6 +46,7 @@ ACTIVE_PROCESSING_STATUSES: frozenset[ProcessingStatus] = frozenset(
         ProcessingStatus.ROAD_ANALYSIS,
         ProcessingStatus.TRAFFIC_ANALYSIS,
         ProcessingStatus.SAFETY_ANALYSIS,
+        ProcessingStatus.INCIDENT_ANALYSIS,
         ProcessingStatus.NORMALIZING,
         ProcessingStatus.PERSISTING,
     }

@@ -33,12 +33,12 @@ export function FleetPage() {
   const [customRoutes, setCustomRoutes] = useState<string[]>([]);
 
   // Summary Metrics
-  const totalBuses = buses.length + 236; // 248 total
-  const activeCount = buses.filter((b) => b.status === "active").length + 236;
-  const offlineCount = buses.filter((b) => b.status === "offline").length + 12;
+  const totalBuses = buses.length;
+  const activeCount = buses.filter((b) => b.status === "active").length;
+  const offlineCount = buses.filter((b) => b.status === "offline").length;
   const processingCount = buses.filter((b) => b.status === "idle").length;
-  const gpsConnectedCount = buses.filter((b) => b.gps === "connected").length + 223;
-  const cameraConnectedCount = buses.filter((b) => b.camerasOnline === b.camerasTotal).length + 215;
+  const gpsConnectedCount = buses.filter((b) => b.gps === "connected" || b.gps === "active").length;
+  const cameraConnectedCount = buses.filter((b) => (b.camerasOnline || 0) >= (b.camerasTotal || 2)).length;
 
   // Filtered Buses
   const filteredBuses = useMemo(() => {
@@ -84,7 +84,9 @@ export function FleetPage() {
               </span>
             </div>
             <div className="mt-2 font-data text-2xl font-bold text-slate-900">{activeCount}</div>
-            <p className="mt-1 text-[11px] text-emerald-600 font-medium">98.4% online & sensing</p>
+            <p className="mt-1 text-[11px] text-emerald-600 font-medium">
+              {totalBuses > 0 ? `${Math.round((activeCount / totalBuses) * 100)}% online & sensing` : "No vehicles reporting"}
+            </p>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-xs">

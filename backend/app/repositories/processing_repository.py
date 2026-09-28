@@ -22,14 +22,21 @@ class ProcessingRepository:
         self._db = db
 
     # ── Create ────────────────────────────────────────────────────────────────
-    def create_job(self, video_id: uuid.UUID) -> ProcessingJob:
+    def create_job(
+        self,
+        video_id: uuid.UUID,
+        mode: str = "multi_engine",
+        engine_statuses: Optional[dict] = None,
+    ) -> ProcessingJob:
         """Create a new QUEUED processing job for the given video."""
         job = ProcessingJob(
             video_id=video_id,
             status=ProcessingStatus.QUEUED.value,
+            mode=mode,
             progress_percentage=0.0,
             frames_processed=0,
             events_detected=0,
+            engine_statuses=engine_statuses or {},
         )
         self._db.add(job)
         self._db.commit()

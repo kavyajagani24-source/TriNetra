@@ -14,12 +14,12 @@ import pytest
 import torch
 from fastapi.testclient import TestClient
 
-from ai.incident.anpr import ANPREngine, PlateResult
-from ai.incident.behavior_engine import BehaviorEngine, TrajectoryPoint
-from ai.incident.collision_model import CollisionDetector
-from ai.incident.evidence import EvidenceManager, compute_sha256
-from ai.incident.hit_and_run import HitAndRunResult, HitAndRunStateMachine, IncidentState, TrackObservation
-from ai.incident.schemas import (
+from app.ai.incident.anpr import ANPREngine, PlateResult
+from app.ai.incident.behavior_engine import BehaviorEngine, TrajectoryPoint
+from app.ai.incident.collision_model import CollisionDetector
+from app.ai.incident.evidence import EvidenceManager, compute_sha256
+from app.ai.incident.hit_and_run import HitAndRunResult, HitAndRunStateMachine, IncidentState, TrackObservation
+from app.ai.incident.schemas import (
     AbnormalDrivingEvent,
     CollisionCandidate,
     EvidencePacket,
@@ -28,8 +28,9 @@ from ai.incident.schemas import (
     IncidentMetrics,
     PlateInfo,
 )
-from main import app
+from app.main import create_application
 
+app = create_application()
 client = TestClient(app)
 
 
@@ -310,38 +311,36 @@ def test_evidence_packet_generation():
 # =====================================================================
 
 def test_health_endpoint_includes_incident():
-    """Verify /health returns 200 and lists incident module."""
-    resp = client.get("/health")
+    """Verify /api/v1/health returns 200."""
+    resp = client.get("/api/v1/health")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["status"] == "ok"
-    assert "incident" in data["modules"]
-    assert "road_infrastructure" in data["modules"]
-    assert "traffic" in data["modules"]
+    assert data["success"] is True
+    assert data["data"]["status"] == "healthy"
 
 
 def test_api_incident_unsupported_media():
-    """Verify POST /api/incident/analyze rejects non-video files with 415."""
+    """Verify POST /api/v1/incident/analyze rejects non-video files with 415."""
     files = {"video": ("test.txt", b"not a video", "text/plain")}
-    resp = client.post("/api/incident/analyze", files=files)
+    resp = client.post("/api/v1/incident/analyze", files=files)
     assert resp.status_code == 415
 
 
 def test_api_incident_run_not_found():
-    """Verify GET /api/incident/runs/{nonexistent} returns 404."""
-    resp = client.get("/api/incident/runs/nonexistent_id_9999")
+    """Verify GET /api/v1/incident/runs/{nonexistent} returns 404."""
+    resp = client.get("/api/v1/incident/runs/nonexistent_id_9999")
     assert resp.status_code == 404
 
 
 def test_api_incident_evidence_not_found():
-    """Verify GET /api/incident/runs/{nonexistent}/evidence returns 404."""
-    resp = client.get("/api/incident/runs/nonexistent_id_9999/evidence")
+    """Verify GET /api/v1/incident/runs/{nonexistent}/evidence returns 404."""
+    resp = client.get("/api/v1/incident/runs/nonexistent_id_9999/evidence")
     assert resp.status_code == 404
 
 
 def test_incident_alert_summary_schema():
     """Verify IncidentAlertSummary unified contract conforms to Person 4 specification."""
-    from ai.incident.schemas import IncidentAlertSummary
+    from app.ai.incident.schemas import IncidentAlertSummary
     summary = IncidentAlertSummary(
         incident_id="INC_test123",
         incident_type="COLLISION_CANDIDATE",
@@ -363,15 +362,15 @@ def test_incident_alert_summary_schema():
 
 
 def test_api_incident_alerts_list():
-    """Verify GET /api/incident/alerts returns 200 and list of alerts for Command Center."""
-    resp = client.get("/api/incident/alerts")
+    """Verify GET /api/v1/incident/alerts returns 200 and list of alerts for Command Center."""
+    resp = client.get("/api/v1/incident/alerts")
     assert resp.status_code == 200
     data = resp.json()
     assert isinstance(data, list)
 
 
 def test_api_incident_alert_not_found():
-    """Verify GET /api/incident/alerts/{nonexistent} returns 404."""
-    resp = client.get("/api/incident/alerts/nonexistent_id_9999")
+    """Verify GET /api/v1/incident/alerts/{nonexistent} returns 404."""
+    resp = client.get("/api/v1/incident/alerts/nonexistent_id_9999")
     assert resp.status_code == 404
 

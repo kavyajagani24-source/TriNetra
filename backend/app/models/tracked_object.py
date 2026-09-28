@@ -2,7 +2,7 @@
 UrbanEye AI — TrackedObject ORM Model
 
 Represents a unique physical object (vehicle/pedestrian) identified and followed
-across video frames with a persistent ByteTrack ID.
+across video frames with a persistent tracker ID (UrbianTracker).
 """
 
 from __future__ import annotations

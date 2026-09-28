@@ -44,7 +44,7 @@ class AIProcessingService:
         self.settings = get_settings()
         self.pipeline = pipeline
 
-    def run_processing_job(self, job_id: uuid.UUID) -> None:
+    def run_processing_job(self, job_id: uuid.UUID, mode: Optional[str] = None) -> None:
         """
         Main worker entrypoint for background processing tasks.
         """
@@ -68,7 +68,8 @@ class AIProcessingService:
                 processing_repo.mark_job_failed(job, "Associated video record not found.")
                 return
 
-            logger.info("Starting Multi-Engine AI processing for job=%s video=%s", job_id, video.id)
+            exec_mode = mode or job.mode or "multi_engine"
+            logger.info("Starting AI processing for job=%s video=%s mode=%s", job_id, video.id, exec_mode)
 
             # Advance initial status
             job.status = ProcessingStatus.PROCESSING.value
@@ -79,10 +80,18 @@ class AIProcessingService:
 
             video_repo.update_video_status(video, VideoStatus.PROCESSING.value)
 
-            # Granular status callback
-            def status_callback(new_status: ProcessingStatus, progress_pct: float) -> None:
+            # Granular status callback with per-engine live updates
+            def status_callback(
+                new_status: ProcessingStatus,
+                progress_pct: float,
+                module_statuses: Optional[dict] = None,
+            ) -> None:
                 job.status = new_status.value
                 job.progress_percentage = round(progress_pct, 2)
+                if module_statuses:
+                    current = dict(job.engine_statuses or {})
+                    current.update(module_statuses)
+                    job.engine_statuses = current
                 db.commit()
                 logger.info(
                     "Job %s advanced to status %s (%.1f%%)",
@@ -152,6 +161,7 @@ class AIProcessingService:
                 video_lon=video.longitude,
                 status_callback=status_callback,
                 progress_callback=progress_callback,
+                mode=exec_mode,
             )
 
             # Stage 5: Persisting
@@ -248,16 +258,8 @@ class AIProcessingService:
                         bbox_y1=ev.bbox_y1,
                         bbox_x2=ev.bbox_x2,
                         bbox_y2=ev.bbox_y2,
-                        latitude=(
-                            ev.latitude
-                            if ev.latitude is not None
-                            else (video.latitude if video.latitude is not None else 19.0760 + ((int(ev.frame_number) % 100) * 0.0001))
-                        ),
-                        longitude=(
-                            ev.longitude
-                            if ev.longitude is not None
-                            else (video.longitude if video.longitude is not None else 72.8777 + ((int(ev.frame_number) % 100) * 0.0001))
-                        ),
+                        latitude=ev.latitude if ev.latitude is not None else video.latitude,
+                        longitude=ev.longitude if ev.longitude is not None else video.longitude,
                         description=ev.description or "",
                         extra_metadata=ev.extra_metadata or {},
                     )
@@ -305,18 +307,38 @@ class AIProcessingService:
             job.annotated_road_path = result.annotated_video_paths.get("road")
             job.annotated_traffic_path = result.annotated_video_paths.get("traffic")
             job.annotated_safety_path = result.annotated_video_paths.get("safety")
+            job.annotated_incident_path = result.annotated_video_paths.get("incident")
 
-            # Mark job completion
+            # Check for partial vs total failure
+            statuses_dict = result.engine_statuses or {}
+            failed_engines = [
+                k for k, v in statuses_dict.items()
+                if isinstance(v, dict) and v.get("status") == "failed"
+            ]
+            completed_engines = [
+                k for k, v in statuses_dict.items()
+                if isinstance(v, dict) and v.get("status") == "completed"
+            ]
+
             total_detected_events = result.total_unique_vehicles + len(events_to_insert)
-            processing_repo.mark_job_completed(job, events_detected=total_detected_events)
-            video_repo.update_video_status(video, VideoStatus.COMPLETED.value)
 
-            logger.info(
-                "Multi-engine AI processing completed for job=%s! Vehicles=%d, UrbanEvents=%d",
-                job_id,
-                result.total_unique_vehicles,
-                len(events_to_insert),
-            )
+            if failed_engines and not completed_engines:
+                err_msg = f"All active AI engines failed: {', '.join(failed_engines)}"
+                processing_repo.mark_job_failed(job, err_msg)
+                video_repo.update_video_status(video, VideoStatus.FAILED.value)
+                logger.error("Job %s marked failed: %s", job_id, err_msg)
+            else:
+                if failed_engines:
+                    job.error_message = f"Analysis completed with errors in: {', '.join(failed_engines)}"
+                processing_repo.mark_job_completed(job, events_detected=total_detected_events)
+                video_repo.update_video_status(video, VideoStatus.COMPLETED.value)
+                logger.info(
+                    "Multi-engine AI processing completed for job=%s! Vehicles=%d, UrbanEvents=%d (Failed engines: %s)",
+                    job_id,
+                    result.total_unique_vehicles,
+                    len(events_to_insert),
+                    failed_engines or "None",
+                )
 
         except Exception as exc:
             logger.exception("AI processing job %s failed: %s", job_id, exc)
