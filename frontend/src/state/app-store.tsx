@@ -220,6 +220,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
               ? (rawEvUrl.startsWith("http") ? rawEvUrl : `http://localhost:8000/${rawEvUrl.replace(/^\/+/, "")}`)
               : undefined;
 
+            const roadName =
+              (ev.extra_metadata?.["road_name"] as string) ||
+              (hasGps ? `Corridor (${Number(ev.latitude).toFixed(3)}, ${Number(ev.longitude).toFixed(3)})` : "Transit Ingestion Corridor");
+
             newLiveIssues.push({
               id: issueId,
               title: evType,
@@ -227,19 +231,20 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
               severity: (ev.severity?.toLowerCase() as Severity) || "moderate",
               priority: isCritical ? "P1" : isHigh ? "P2" : "P3",
               status: "new",
-              road: ev.description || "Transit Survey Corridor",
+              road: roadName,
               department: "PWD",
               ward: hasGps ? "Geotagged Corridor" : "Transit Ingestion (Mumbai)",
               position: hasGps
                 ? { lat: ev.latitude as number, lng: ev.longitude as number }
-                : { lat: 19.1136 + (Math.random() - 0.5) * 0.02, lng: 72.8697 + (Math.random() - 0.5) * 0.02 },
+                : (null as any),
               confidence: ev.confidence || 0.88,
               observationCount: 1,
               busCount: 1,
+              persistent: isCritical,
               slaHoursRemaining: isCritical ? 12 : 36,
-              firstObserved: ev.created_at ? new Date(ev.created_at).toLocaleTimeString() : "Recent",
-              lastObserved: ev.created_at ? new Date(ev.created_at).toLocaleTimeString() : "Recent",
-              lastObservedLabel: "live video run",
+              firstObserved: ev.created_at ? new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
+              lastObserved: ev.created_at ? new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
+              lastObservedLabel: ev.created_at ? new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now",
               tags: ["Live AI Detection", ev.event_type],
               evidenceUrl: fullEvidenceUrl,
               evidence: fullEvidenceUrl

@@ -351,7 +351,24 @@ export function AndheriIntelligenceMap({
         return;
       }
 
-      const items = demoMode ? (issues && issues.length > 0 ? issues : ANDHERI_ISSUES) : (issues || []);
+      // Render authoritative road-aligned issues plus any genuine geotagged live issues
+      const geotaggedLive = (issues || []).filter(
+        (i: any) =>
+          i.position &&
+          typeof i.position.lat === "number" &&
+          typeof i.position.lng === "number" &&
+          (i.position.lat !== 0 || i.position.lng !== 0) &&
+          !isNaN(i.position.lat) &&
+          !isNaN(i.position.lng)
+      );
+      const seen = new Set<string>();
+      const items: any[] = [];
+      [...ANDHERI_ISSUES, ...geotaggedLive].forEach((it: any) => {
+        if (!seen.has(it.id)) {
+          seen.add(it.id);
+          items.push(it);
+        }
+      });
       const currentIds = new Set<string>();
 
       items.forEach((issue: any) => {
@@ -446,6 +463,14 @@ export function AndheriIntelligenceMap({
         el.style.zIndex = "1";
       }
     });
+
+    if (selectedIssueId && mapRef.current) {
+      const match = issueMarkersRef.current.get(selectedIssueId);
+      if (match) {
+        const lngLat = match.marker.getLngLat();
+        mapRef.current.easeTo({ center: [lngLat.lng, lngLat.lat], duration: 500 });
+      }
+    }
   }, [selectedIssueId]);
 
   // Render Subtle Fleet Bus Markers (Layer E)

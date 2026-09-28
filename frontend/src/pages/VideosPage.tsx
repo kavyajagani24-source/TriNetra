@@ -55,6 +55,8 @@ export interface UnifiedEvent {
   confidence: number;
   evidenceUrl?: string | null;
   coordinates?: { lat?: number | null; lon?: number | null };
+  bbox?: number[] | null;
+  damageClass?: string | null;
   extra?: Record<string, unknown>;
 }
 
@@ -382,6 +384,7 @@ function VideoPlayer({
   events,
   seekToTime,
   onEventSelect,
+  selectedEvent,
   annotatedStreams,
   activeModule,
   streamKey,
@@ -391,6 +394,7 @@ function VideoPlayer({
   events: UnifiedEvent[];
   seekToTime: number | null;
   onEventSelect?: (e: UnifiedEvent) => void;
+  selectedEvent?: UnifiedEvent | null;
   annotatedStreams?: {
     road?: string | null;
     traffic?: string | null;
@@ -411,12 +415,35 @@ function VideoPlayer({
   const [playbackRate, setPlaybackRate] = useState(1);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [internalStreamKey, setInternalStreamKey] = useState<string>("raw");
+  const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number }>({ width: 1920, height: 1080 });
+  const [containerRect, setContainerRect] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const selectedStreamKey = streamKey !== undefined ? streamKey : internalStreamKey;
   const setSelectedStreamKey = (k: string) => {
     setInternalStreamKey(k);
     onStreamKeyChange?.(k);
   };
   const lastTimeRef = useRef<number>(0);
+
+  // ResizeObserver to maintain exact video aspect ratio letterbox alignment
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerRect({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  // Synchronized active bounding box detections around currentTime
+  const activeDetections = useMemo(() => {
+    return events.filter((ev) => {
+      if (!ev.bbox || ev.bbox.length < 4) return false;
+      const timeDiff = Math.abs(ev.timestamp - currentTime);
+      return timeDiff <= 1.2 || (selectedEvent && selectedEvent.id === ev.id && timeDiff <= 2.5);
+    });
+  }, [events, currentTime, selectedEvent]);
 
   // Available stream options (Raw footage vs AI overlays)
   const availableStreams = useMemo(() => {
@@ -494,6 +521,12 @@ function VideoPlayer({
     if (videoRef.current) {
       const d = videoRef.current.duration;
       if (d && !isNaN(d)) setDuration(d);
+      if (videoRef.current.videoWidth && videoRef.current.videoHeight) {
+        setVideoDimensions({
+          width: videoRef.current.videoWidth,
+          height: videoRef.current.videoHeight,
+        });
+      }
       if (lastTimeRef.current > 0) {
         videoRef.current.currentTime = lastTimeRef.current;
         if (isPlaying) {
@@ -502,6 +535,41 @@ function VideoPlayer({
       }
     }
   };
+
+  // Compute exact letterboxed/pillarboxed video content rect inside container
+  const displayRect = useMemo(() => {
+    if (!containerRect.width || !containerRect.height || !videoDimensions.width || !videoDimensions.height) {
+      return { left: 0, top: 0, width: 100, height: 100 };
+    }
+    const containerAspect = containerRect.width / containerRect.height;
+    const videoAspect = videoDimensions.width / videoDimensions.height;
+
+    if (Math.abs(containerAspect - videoAspect) < 0.02) {
+      return { left: 0, top: 0, width: 100, height: 100 };
+    }
+
+    if (containerAspect > videoAspect) {
+      // Pillarboxed (bars on sides)
+      const renderWidth = containerRect.height * videoAspect;
+      const leftOffset = (containerRect.width - renderWidth) / 2;
+      return {
+        left: (leftOffset / containerRect.width) * 100,
+        top: 0,
+        width: (renderWidth / containerRect.width) * 100,
+        height: 100,
+      };
+    } else {
+      // Letterboxed (bars on top/bottom)
+      const renderHeight = containerRect.width / videoAspect;
+      const topOffset = (containerRect.height - renderHeight) / 2;
+      return {
+        left: 0,
+        top: (topOffset / containerRect.height) * 100,
+        width: 100,
+        height: (renderHeight / containerRect.height) * 100,
+      };
+    }
+  }, [containerRect, videoDimensions]);
 
   const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -572,6 +640,79 @@ function VideoPlayer({
           <p className="text-xs">No streamable video file available</p>
         </div>
       )}
+
+      {/* Real-time Dynamic AI Bounding Box & Defect Classification Overlay */}
+      <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
+        {activeDetections.map((det) => {
+          const [bx1, by1, bx2, by2] = det.bbox!;
+          const isPx = bx2 > 1.0 || by2 > 1.0;
+          const vw = videoDimensions.width || 1920;
+          const vh = videoDimensions.height || 1080;
+
+          const relLeft = Math.max(0, Math.min(100, isPx ? (bx1 / vw) * 100 : bx1 * 100));
+          const relTop = Math.max(0, Math.min(100, isPx ? (by1 / vh) * 100 : by1 * 100));
+          const relWidth = Math.max(2, Math.min(100 - relLeft, isPx ? ((bx2 - bx1) / vw) * 100 : (bx2 - bx1) * 100));
+          const relHeight = Math.max(2, Math.min(100 - relTop, isPx ? ((by2 - by1) / vh) * 100 : (by2 - by1) * 100));
+
+          const left = displayRect.left + (relLeft * displayRect.width) / 100;
+          const top = displayRect.top + (relTop * displayRect.height) / 100;
+          const width = (relWidth * displayRect.width) / 100;
+          const height = (relHeight * displayRect.height) / 100;
+
+          const damageClass =
+            det.damageClass ||
+            (det.extra?.damage_class as string) ||
+            (det.label.toLowerCase().includes("pothole")
+              ? "D40"
+              : det.label.toLowerCase().includes("alligator")
+              ? "D20"
+              : det.label.toLowerCase().includes("crack")
+              ? "D00"
+              : "D40");
+
+          const isCritical = det.severity === "critical" || damageClass === "D40";
+
+          return (
+            <div
+              key={det.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEventSelect?.(det);
+              }}
+              style={{
+                left: `${left}%`,
+                top: `${top}%`,
+                width: `${width}%`,
+                height: `${height}%`,
+              }}
+              className={cn(
+                "absolute border-2 pointer-events-auto cursor-pointer transition-all duration-75",
+                isCritical
+                  ? "border-[#EF4444] bg-[#EF4444]/20 shadow-[0_0_12px_rgba(239,68,68,0.8)]"
+                  : "border-[#F59E0B] bg-[#F59E0B]/20 shadow-[0_0_10px_rgba(245,158,11,0.7)]"
+              )}
+            >
+              {/* Corner brackets */}
+              <span className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-white" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-white" />
+              <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-white" />
+              <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-white" />
+
+              {/* Classification Tag Pill */}
+              <div
+                className={cn(
+                  "absolute -top-5 left-0 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-mono font-bold tracking-tight text-white shadow-md whitespace-nowrap",
+                  isCritical ? "bg-[#DC2626]" : "bg-[#D97706]"
+                )}
+              >
+                <span className="bg-black/50 px-1 rounded text-[9px] uppercase tracking-wider">{damageClass}</span>
+                <span>{det.label.replace(damageClass, "").trim() || "Road Defect"}</span>
+                <span className="opacity-90 font-normal">· {det.confidence}%</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Center Play/Pause Overlay — only when paused */}
       {!isPlaying && (
@@ -2400,17 +2541,42 @@ function VideoWorkspace({
         (ue.extra_metadata?.["evidence_path"] as string) ||
         null;
 
+      const damageClass =
+        (ue.extra_metadata?.["damage_class"] as string) ||
+        (ue.event_type.toUpperCase().includes("POTHOLE")
+          ? "D40"
+          : ue.event_type.toUpperCase().includes("ALLIGATOR")
+          ? "D20"
+          : ue.event_type.toUpperCase().includes("CRACK")
+          ? "D00"
+          : null);
+
+      const hasBbox =
+        ue.bbox_x1 != null &&
+        ue.bbox_y1 != null &&
+        ue.bbox_x2 != null &&
+        ue.bbox_y2 != null;
+      const bbox = hasBbox
+        ? [ue.bbox_x1 as number, ue.bbox_y1 as number, ue.bbox_x2 as number, ue.bbox_y2 as number]
+        : ((ue.extra_metadata?.["bbox"] as number[]) || null);
+
+      const displayLabel = damageClass
+        ? `${damageClass} ${ue.event_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}`
+        : ue.event_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
       list.push({
         id: `urban-${ue.id}`,
         module: mod,
         timestamp: Math.round((ue.timestamp || 0) * 10) / 10,
-        label: ue.event_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        label: displayLabel,
         detail: ue.description || `${ue.category} event detected at frame ${ue.frame_number}`,
         severity: (ue.severity?.toLowerCase() as "low" | "medium" | "high" | "critical") || "medium",
         confidence: Math.round((ue.confidence || 0.8) * 100),
         evidenceUrl: evUrl,
         coordinates: { lat: ue.latitude, lon: ue.longitude },
-        extra: { ...ue.extra_metadata },
+        bbox,
+        damageClass,
+        extra: { ...ue.extra_metadata, damage_class: damageClass, bbox },
       });
     });
 
@@ -2530,6 +2696,7 @@ function VideoWorkspace({
             events={allEvents}
             seekToTime={seekToTime}
             onEventSelect={handleEventSelect}
+            selectedEvent={selectedEvent}
             annotatedStreams={{
               road: statusData?.annotated_road_path,
               traffic: statusData?.annotated_traffic_path,

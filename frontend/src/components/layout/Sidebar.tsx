@@ -20,15 +20,9 @@ const COMMAND_NAV = [
   { to: "/overview", label: "Overview", icon: LayoutGrid },
   { to: "/videos", label: "Video Processing", icon: Video },
   { to: "/city-map", label: "City Map", icon: MapIcon },
+  { to: "/incidents", label: "Incidents & ANPR", icon: Zap },
   { to: "/action-center", label: "Action Center", icon: ListTodo },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
-] as const;
-
-const INTELLIGENCE_NAV = [
-  { to: "/roads", label: "Roads & Defects", icon: AlertTriangle },
-  { to: "/traffic", label: "Traffic Flow", icon: Car },
-  { to: "/safety", label: "VRU Safety", icon: Shield },
-  { to: "/incidents", label: "Incidents & ANPR", icon: Zap },
 ] as const;
 
 const OPERATIONS_NAV = [
@@ -125,7 +119,6 @@ export function Sidebar() {
       {/* Navigation */}
       <div className="flex flex-1 flex-col py-1.5 overflow-y-auto scroll-thin space-y-1">
         <NavGroup label="Command Center" items={COMMAND_NAV} pathname={pathname} />
-        <NavGroup label="AI Intelligence" items={INTELLIGENCE_NAV} pathname={pathname} />
         <NavGroup label="Operations" items={OPERATIONS_NAV} pathname={pathname} />
       </div>
 
