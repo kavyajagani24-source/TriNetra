@@ -52,6 +52,10 @@ class AnalyticsService:
         for obj in tracked_objs:
             counts_by_class[obj.class_name] = counts_by_class.get(obj.class_name, 0) + 1
 
+        total_veh = sum(v for k, v in counts_by_class.items() if k != "person")
+        peak_density = "HIGH" if total_veh > 15 else "MEDIUM" if total_veh > 5 else "LOW" if total_veh > 0 else "NONE"
+        avg_congestion = "HIGH" if total_veh > 20 else "MODERATE" if total_veh > 5 else "LOW"
+
         return {
             "job_id": job.id,
             "video_id": job.video_id,
@@ -61,6 +65,10 @@ class AnalyticsService:
             "total_frames": job.total_frames,
             "total_unique_vehicles": job.events_detected,
             "counts_by_class": counts_by_class,
+            "vehicle_counts_by_class": counts_by_class,
+            "peak_density": peak_density,
+            "avg_congestion_level": avg_congestion,
+            "total_detections": len(tracked_objs),
             "peak_active_vehicles": analytics_summary["peak_active_vehicles"],
             "avg_active_vehicles": analytics_summary["avg_active_vehicles"],
             "avg_pixel_speed": analytics_summary["avg_pixel_speed"],

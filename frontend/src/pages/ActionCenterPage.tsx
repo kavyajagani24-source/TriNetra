@@ -327,11 +327,19 @@ function IssueDetailDrawer({
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
-        {issue.evidenceUrl && (
+        {(issue.evidenceUrl || issue.evidence?.current?.imageUrl) && (
           <div className="space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Evidence Artifact</span>
             <div className="aspect-video w-full rounded-md border border-border overflow-hidden bg-black/50">
-              <img src={issue.evidenceUrl} alt={issue.title} className="h-full w-full object-cover" />
+              <img
+                src={
+                  (issue.evidenceUrl || issue.evidence?.current?.imageUrl)!.startsWith("http")
+                    ? (issue.evidenceUrl || issue.evidence?.current?.imageUrl)!
+                    : `http://localhost:8000${(issue.evidenceUrl || issue.evidence?.current?.imageUrl)!.startsWith("/") ? "" : "/"}${issue.evidenceUrl || issue.evidence?.current?.imageUrl}`
+                }
+                alt={issue.title}
+                className="h-full w-full object-cover"
+              />
             </div>
           </div>
         )}

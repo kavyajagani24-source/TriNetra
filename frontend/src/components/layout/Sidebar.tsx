@@ -1,12 +1,16 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  AlertTriangle,
   BarChart3,
   Bus,
+  Car,
   LayoutGrid,
   ListTodo,
   Map as MapIcon,
   Settings,
+  Shield,
   Video,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +20,7 @@ const COMMAND_NAV = [
   { to: "/overview", label: "Overview", icon: LayoutGrid },
   { to: "/videos", label: "Video Processing", icon: Video },
   { to: "/city-map", label: "City Map", icon: MapIcon },
+  { to: "/incidents", label: "Incidents & ANPR", icon: Zap },
   { to: "/action-center", label: "Action Center", icon: ListTodo },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
 ] as const;
@@ -45,7 +50,11 @@ function NavGroup({
           (to === "/overview" && pathname === "/") ||
           (to === "/city-map" && (pathname === "/map" || pathname.startsWith("/city-map"))) ||
           (to === "/fleet" && pathname === "/buses") ||
-          (to === "/videos" && (pathname === "/video-processing" || pathname.startsWith("/videos")));
+          (to === "/videos" && (pathname === "/video-processing" || pathname.startsWith("/videos"))) ||
+          (to === "/roads" && (pathname === "/road-intelligence" || pathname.startsWith("/roads"))) ||
+          (to === "/traffic" && (pathname === "/traffic-flow" || pathname.startsWith("/traffic"))) ||
+          (to === "/safety" && (pathname === "/vru" || pathname.startsWith("/safety"))) ||
+          (to === "/incidents" && (pathname === "/anpr" || pathname.startsWith("/incidents")));
 
         return (
           <Link

@@ -58,13 +58,30 @@ class AnnotatedWriter:
         fps: float,
     ) -> None:
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        # Ensure FPS is clean integer or safe float to avoid ffmpeg timebase denominator overflow (> 65535)
+        clean_fps = float(round(fps)) if fps and fps > 0 else 30.0
+        if clean_fps <= 0 or clean_fps > 120 or not np.isfinite(clean_fps):
+            clean_fps = 30.0
+
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        self._writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        self._writer = cv2.VideoWriter(output_path, fourcc, clean_fps, (width, height))
         if not self._writer.isOpened():
-            raise IOError(f"Cannot open VideoWriter at {output_path}")
+            for fallback_code in ["avc1", "XVID", "MJPG"]:
+                try:
+                    fcc = cv2.VideoWriter_fourcc(*fallback_code)
+                    self._writer = cv2.VideoWriter(output_path, fcc, clean_fps, (width, height))
+                    if self._writer.isOpened():
+                        break
+                except Exception:
+                    pass
+        if not self._writer.isOpened():
+            logger.warning("Could not open VideoWriter at %s — continuing without annotated video file", output_path)
+            self._writer = None
+
         self.output_path = output_path
         self._frame_count = 0
-        logger.info("AnnotatedWriter opened: %s (%dx%d @ %.0ffps)", output_path, width, height, fps)
+        if self._writer is not None:
+            logger.info("AnnotatedWriter opened: %s (%dx%d @ %.0ffps)", output_path, width, height, clean_fps)
 
     def write_frame(
         self,
@@ -118,12 +135,14 @@ class AnnotatedWriter:
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2,
             )
 
-        self._writer.write(annotated)
-        self._frame_count += 1
+        if self._writer is not None:
+            self._writer.write(annotated)
+            self._frame_count += 1
 
     def close(self) -> None:
-        self._writer.release()
-        logger.info("AnnotatedWriter closed: %d frames → %s", self._frame_count, self.output_path)
+        if self._writer is not None:
+            self._writer.release()
+            logger.info("AnnotatedWriter closed: %d frames → %s", self._frame_count, self.output_path)
 
     # ------------------------------------------------------------------ #
     # Helpers

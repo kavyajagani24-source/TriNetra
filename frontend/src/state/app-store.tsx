@@ -200,16 +200,29 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       const newLiveIssues: Issue[] = [];
       const newLiveObs: Observation[] = [];
 
-      if (eventsRes?.items && eventsRes.items.length > 0) {
-        eventsRes.items.forEach((ev) => {
+      const rawEventList = (eventsRes as any)?.data || (eventsRes as any)?.items || [];
+      if (Array.isArray(rawEventList) && rawEventList.length > 0) {
+        rawEventList.forEach((ev: any) => {
           const cat = ev.category?.toUpperCase();
           if (cat === "HAZARD" || cat === "INFRASTRUCTURE" || cat === "ROAD") {
-            const evType = ev.event_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+            const evType = ev.event_type.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
             const issueId = `POTH-${ev.id.slice(0, 8)}`;
             const isCritical = ev.severity === "CRITICAL";
             const isHigh = ev.severity === "HIGH";
 
             const hasGps = typeof ev.latitude === "number" && typeof ev.longitude === "number" && (ev.latitude !== 0 || ev.longitude !== 0);
+            const rawEvUrl =
+              (ev.extra_metadata?.["evidence_frame"] as string) ||
+              (ev.extra_metadata?.["evidence_ref"] as string) ||
+              (ev.extra_metadata?.["evidence_path"] as string) ||
+              undefined;
+            const fullEvidenceUrl = rawEvUrl
+              ? (rawEvUrl.startsWith("http") ? rawEvUrl : `http://localhost:8000/${rawEvUrl.replace(/^\/+/, "")}`)
+              : undefined;
+
+            const roadName =
+              (ev.extra_metadata?.["road_name"] as string) ||
+              (hasGps ? `Corridor (${Number(ev.latitude).toFixed(3)}, ${Number(ev.longitude).toFixed(3)})` : "Transit Ingestion Corridor");
 
             newLiveIssues.push({
               id: issueId,
@@ -218,21 +231,45 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
               severity: (ev.severity?.toLowerCase() as Severity) || "moderate",
               priority: isCritical ? "P1" : isHigh ? "P2" : "P3",
               status: "new",
-              road: ev.description || "Survey Corridor",
+              road: roadName,
               department: "PWD",
-              ward: hasGps ? "Geotagged Corridor" : "GPS Unavailable (Transit Ingestion)",
+              ward: hasGps ? "Geotagged Corridor" : "Transit Ingestion (Mumbai)",
               position: hasGps
                 ? { lat: ev.latitude as number, lng: ev.longitude as number }
-                : null,
+                : (null as any),
               confidence: ev.confidence || 0.88,
               observationCount: 1,
               busCount: 1,
+              persistent: isCritical,
               slaHoursRemaining: isCritical ? 12 : 36,
-              firstObserved: ev.created_at ? new Date(ev.created_at).toLocaleTimeString() : "Recent",
-              lastObserved: ev.created_at ? new Date(ev.created_at).toLocaleTimeString() : "Recent",
-              lastObservedLabel: "live video run",
+              firstObserved: ev.created_at ? new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
+              lastObserved: ev.created_at ? new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
+              lastObservedLabel: ev.created_at ? new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now",
               tags: ["Live AI Detection", ev.event_type],
-              evidenceUrl: (ev.extra_metadata?.["evidence_frame"] as string) || undefined,
+              evidenceUrl: fullEvidenceUrl,
+              evidence: fullEvidenceUrl
+                ? {
+                    current: {
+                      busId: "SURVEY-CAM-01",
+                      capturedAt: ev.created_at || "Recent",
+                      image: fullEvidenceUrl,
+                      detections: [
+                        {
+                          id: `det-${ev.id.slice(0, 6)}`,
+                          kind: "defect",
+                          label: evType,
+                          confidence: ev.confidence || 0.88,
+                          box: [
+                            (ev.bbox_x1 || 100) / 1000,
+                            (ev.bbox_y1 || 100) / 1000,
+                            ((ev.bbox_x2 || 300) - (ev.bbox_x1 || 100)) / 1000,
+                            ((ev.bbox_y2 || 300) - (ev.bbox_y1 || 100)) / 1000,
+                          ],
+                        },
+                      ],
+                    },
+                  }
+                : undefined,
             });
 
             newLiveObs.push({
@@ -267,20 +304,30 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       // Add Person 4 alerts
       if (incidentAlerts && incidentAlerts.length > 0) {
-        incidentAlerts.forEach((alert) => {
-          const incType = alert.collision_detected
-            ? "Collision Candidate"
-            : alert.hit_and_run_candidate
-            ? "Hit-and-Run Assessment"
-            : alert.rash_driving_count > 0
-            ? "Rash Driving Profile"
-            : "Traffic Incident";
+        incidentAlerts.forEach((alert: any) => {
+          if (alert.incident_type === "NONE" || alert.status === "NO_INCIDENT") return;
 
+          const incType =
+            alert.incident_type === "COLLISION_CANDIDATE" || alert.collision_detected
+              ? "Collision Candidate"
+              : alert.incident_type === "HIT_AND_RUN_CANDIDATE" || alert.hit_and_run_candidate
+              ? "Hit-and-Run Assessment"
+              : alert.incident_type === "ABNORMAL_DRIVING_CANDIDATE" || alert.rash_driving_count > 0
+              ? "Rash Driving Profile"
+              : alert.incident_type
+              ? alert.incident_type.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
+              : "Traffic Incident";
+
+          const lat = alert.gps?.latitude ?? alert.gps_latitude;
+          const lon = alert.gps?.longitude ?? alert.gps_longitude;
           const hasAlertGps = Boolean(
-            typeof alert.gps_latitude === "number" &&
-            typeof alert.gps_longitude === "number" &&
-            (alert.gps_latitude !== 0 || alert.gps_longitude !== 0)
+            typeof lat === "number" &&
+            typeof lon === "number" &&
+            (lat !== 0 || lon !== 0)
           );
+
+          const plateNum = alert.anpr?.plate_number || alert.offending_plate || (alert.plates_detected?.[0] ?? "Not Identified");
+          const evImg = alert.evidence?.during || alert.evidence_artifacts?.during || "";
 
           newLiveIncidents.push({
             id: alert.incident_id || alert.run_id,
@@ -288,19 +335,19 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             confidence: alert.confidence || 0.9,
             at: alert.timestamp ? new Date(alert.timestamp).toLocaleTimeString() : "Recent",
             location: hasAlertGps
-              ? `GPS: ${alert.gps_latitude!.toFixed(4)}, ${alert.gps_longitude!.toFixed(4)}`
+              ? `GPS: ${lat!.toFixed(4)}, ${lon!.toFixed(4)}`
               : "Dashcam Ingestion (GPS Unavailable)",
             position: hasAlertGps
-              ? { lat: alert.gps_latitude!, lng: alert.gps_longitude! }
+              ? { lat: lat!, lng: lon! }
               : null,
-            vehicleType: "Vehicle Candidate",
-            trackId: alert.involved_track_ids?.[0] ? String(alert.involved_track_ids[0]) : "N/A",
-            plateCandidate: alert.offending_plate || (alert.plates_detected?.[0] ?? "Not Identified"),
-            plateConfidence: alert.plates_detected?.length ? 0.85 : 0.0,
+            vehicleType: alert.vehicle?.class_name ? alert.vehicle.class_name.toUpperCase() : "Vehicle Candidate",
+            trackId: alert.vehicle?.track_id != null ? String(alert.vehicle.track_id) : (alert.involved_track_ids?.[0] ? String(alert.involved_track_ids[0]) : "N/A"),
+            plateCandidate: plateNum,
+            plateConfidence: alert.anpr?.plate_confidence || (alert.plates_detected?.length ? 0.85 : 0.0),
             supportingFrames: 30,
             status: "human_review",
             evidence: {
-              src: alert.evidence_artifacts?.during || "",
+              src: evImg,
               timestamp: "Impact window",
               frameNumber: 0,
               labels: [alert.operational_tier || "Review", `Score: ${Math.round((alert.confidence || 0.85) * 100)}%`],
@@ -640,11 +687,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     [demoIssues, pushNotification]
   );
 
-  // Derive active dataset based on demoMode toggle
-  const currentIssues = demoMode ? demoIssues : liveIssues;
-  const currentBuses = demoMode ? demoBuses : liveBuses;
-  const currentIncidents = demoMode ? demoIncidents : liveIncidents;
-  const currentObservations = demoMode ? demoObservations : liveObservations;
+  // Prioritize live intelligence data, ensuring real video runs directly drive all screens
+  const currentIssues = liveIssues.length > 0 ? liveIssues : (demoMode ? demoIssues : liveIssues);
+  const currentBuses = liveBuses.length > 0 ? liveBuses : (demoMode ? demoBuses : liveBuses);
+  const currentIncidents = liveIncidents.length > 0 ? liveIncidents : (demoMode ? demoIncidents : liveIncidents);
+  const currentObservations = liveObservations.length > 0 ? liveObservations : (demoMode ? demoObservations : liveObservations);
 
   const value = useMemo<Store>(
     () => ({
