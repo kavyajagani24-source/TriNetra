@@ -167,6 +167,17 @@ class AIProcessingService:
             # Stage 5: Persisting
             status_callback(ProcessingStatus.PERSISTING, 95.0)
 
+            # Purge prior run records for this video so stale events/detections do not accumulate
+            try:
+                db.query(UrbanEvent).filter(UrbanEvent.video_id == video.id).delete()
+                db.query(Detection).filter(Detection.video_id == video.id).delete()
+                db.query(TrackedObject).filter(TrackedObject.video_id == video.id).delete()
+                db.query(TrafficAnalytics).filter(TrafficAnalytics.video_id == video.id).delete()
+                db.commit()
+            except Exception as purge_err:
+                logger.warning("Could not purge previous run records for video %s: %s", video.id, purge_err)
+                db.rollback()
+
             # 1. Persist Tracked Objects
             track_id_to_obj_id = {}
             tracked_objects_to_insert = []

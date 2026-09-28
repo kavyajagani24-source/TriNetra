@@ -198,54 +198,11 @@ export function TopBar() {
           )}
         </div>
 
-        {/* Live vs Demo Mode Switcher Badge */}
-        <button
-          onClick={toggleDemoMode}
-          className={cn(
-            "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-bold transition-all shadow-xs cursor-pointer",
-            demoMode
-              ? "border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25"
-              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/20"
-          )}
-          title="Toggle between Live Ingestion Data and Curated Benchmark Demo Dataset"
-        >
-          <span
-            className={cn(
-              "h-2 w-2 rounded-full",
-              demoMode ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
-            )}
-          />
-          <span>{demoMode ? "DEMO MODE" : "LIVE MODE"}</span>
-        </button>
-
-        {/* Theme Switcher */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="grid h-8 w-8 place-items-center rounded-md border border-border bg-card hover:bg-muted text-foreground transition-colors cursor-pointer"
-              aria-label="Toggle theme"
-            >
-              {resolvedTheme === "dark" ? (
-                <Moon className="h-4 w-4 text-emerald-400" />
-              ) : (
-                <Sun className="h-4 w-4 text-amber-500" />
-              )}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-36 border border-border bg-card shadow-md">
-            <DropdownMenuLabel className="text-[11px] font-semibold text-muted-foreground">Theme</DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem onClick={() => setTheme("light")} className="text-xs cursor-pointer flex items-center gap-2">
-              <Sun className="h-3.5 w-3.5 text-amber-500" /> Light
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme("dark")} className="text-xs cursor-pointer flex items-center gap-2">
-              <Moon className="h-3.5 w-3.5 text-emerald-400" /> Dark
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme("system")} className="text-xs cursor-pointer flex items-center gap-2">
-              <Laptop className="h-3.5 w-3.5 text-muted-foreground" /> System
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Live System Status Indicator */}
+        <div className="flex items-center gap-1.5 rounded-md border border-emerald-600/25 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 shadow-xs">
+          <span className="h-2 w-2 rounded-full bg-emerald-600" />
+          <span>LIVE MODE</span>
+        </div>
 
         {/* Notifications Popover */}
         <Popover>

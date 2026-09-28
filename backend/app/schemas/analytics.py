@@ -48,9 +48,13 @@ class JobResultsResponse(BaseModel):
     total_frames: Optional[int] = None
     total_unique_vehicles: int
     counts_by_class: Dict[str, int]
+    vehicle_counts_by_class: Optional[Dict[str, int]] = None
     peak_active_vehicles: int
     avg_active_vehicles: float
     avg_pixel_speed: float = 0.0
+    peak_density: Optional[str] = "MODERATE"
+    avg_congestion_level: Optional[str] = "LOW"
+    total_detections: Optional[int] = 0
     mode: Optional[str] = "multi_engine"
     engine_statuses: Optional[dict] = None
     annotated_road_path: Optional[str] = None

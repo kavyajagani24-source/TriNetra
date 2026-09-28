@@ -1,12 +1,16 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  AlertTriangle,
   BarChart3,
   Bus,
+  Car,
   LayoutGrid,
   ListTodo,
   Map as MapIcon,
   Settings,
+  Shield,
   Video,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +22,13 @@ const COMMAND_NAV = [
   { to: "/city-map", label: "City Map", icon: MapIcon },
   { to: "/action-center", label: "Action Center", icon: ListTodo },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+] as const;
+
+const INTELLIGENCE_NAV = [
+  { to: "/roads", label: "Roads & Defects", icon: AlertTriangle },
+  { to: "/traffic", label: "Traffic Flow", icon: Car },
+  { to: "/safety", label: "VRU Safety", icon: Shield },
+  { to: "/incidents", label: "Incidents & ANPR", icon: Zap },
 ] as const;
 
 const OPERATIONS_NAV = [
@@ -45,7 +56,11 @@ function NavGroup({
           (to === "/overview" && pathname === "/") ||
           (to === "/city-map" && (pathname === "/map" || pathname.startsWith("/city-map"))) ||
           (to === "/fleet" && pathname === "/buses") ||
-          (to === "/videos" && (pathname === "/video-processing" || pathname.startsWith("/videos")));
+          (to === "/videos" && (pathname === "/video-processing" || pathname.startsWith("/videos"))) ||
+          (to === "/roads" && (pathname === "/road-intelligence" || pathname.startsWith("/roads"))) ||
+          (to === "/traffic" && (pathname === "/traffic-flow" || pathname.startsWith("/traffic"))) ||
+          (to === "/safety" && (pathname === "/vru" || pathname.startsWith("/safety"))) ||
+          (to === "/incidents" && (pathname === "/anpr" || pathname.startsWith("/incidents")));
 
         return (
           <Link
@@ -110,6 +125,7 @@ export function Sidebar() {
       {/* Navigation */}
       <div className="flex flex-1 flex-col py-1.5 overflow-y-auto scroll-thin space-y-1">
         <NavGroup label="Command Center" items={COMMAND_NAV} pathname={pathname} />
+        <NavGroup label="AI Intelligence" items={INTELLIGENCE_NAV} pathname={pathname} />
         <NavGroup label="Operations" items={OPERATIONS_NAV} pathname={pathname} />
       </div>
 

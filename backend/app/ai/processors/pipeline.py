@@ -271,15 +271,8 @@ class UrbanAIPipeline:
         safety_detections: List[Dict[str, Any]] = []
 
         if run_safety:
-            if not self.safety_runner.is_available():
-                logger.warning("[%s] Safety AI skipped: SIH2026--Module3 repository not found on host", job_id)
-                engine_statuses["safety"] = {
-                    "status": "unavailable",
-                    "reason": "SIH2026--Module3 repository not installed on host",
-                }
-                emit_status(ProcessingStatus.PROCESSING, 75.0, {"safety": engine_statuses["safety"]})
-            else:
-                logger.info("[%s] Starting Stage 3: Module 3 Safety AI", job_id)
+            if self.safety_runner.is_available():
+                logger.info("[%s] Starting Stage 3: Module 3 Safety AI (External Runner)", job_id)
                 engine_statuses["safety"] = {"status": "running"}
                 emit_status(ProcessingStatus.SAFETY_ANALYSIS, 70.0, {"safety": engine_statuses["safety"]})
 
@@ -311,6 +304,7 @@ class UrbanAIPipeline:
                         "runtime_sec": round(t_safety, 2),
                         "events_count": len(raw_safety_events),
                         "annotated_video": annotated_safety_str,
+                        "engine": "Module 3 VRU Runner",
                     }
                     safety_urban_events = self.safety_adapter.to_urban_events(
                         events=raw_safety_events,
@@ -326,6 +320,71 @@ class UrbanAIPipeline:
                     )
                 except Exception as e:
                     logger.exception("[%s] Safety AI failed: %s", job_id, e)
+                    engine_statuses["safety"] = {"status": "failed", "error": str(e)}
+                emit_status(ProcessingStatus.SAFETY_ANALYSIS, 80.0, {"safety": engine_statuses["safety"]})
+            else:
+                logger.info("[%s] Starting Stage 3: Native Pedestrian & VRU Safety AI", job_id)
+                engine_statuses["safety"] = {"status": "running"}
+                emit_status(ProcessingStatus.SAFETY_ANALYSIS, 70.0, {"safety": engine_statuses["safety"]})
+
+                t0 = time.monotonic()
+                try:
+                    from app.ai.models.detection_types import BoundingBox, FrameResult, TrackedDetection
+                    from app.ai.safety.pedestrian_risk_analyser import PedestrianRiskAnalyser
+
+                    analyser = PedestrianRiskAnalyser(enabled=True)
+                    frames_map: Dict[int, List[TrackedDetection]] = {}
+
+                    if traffic_result and traffic_result.detections:
+                        for d in traffic_result.detections:
+                            bbox_raw = d.get("bbox", [])
+                            if len(bbox_raw) >= 4:
+                                bbox_obj = BoundingBox(
+                                    x1=float(bbox_raw[0]),
+                                    y1=float(bbox_raw[1]),
+                                    x2=float(bbox_raw[2]),
+                                    y2=float(bbox_raw[3]),
+                                )
+                                td = TrackedDetection(
+                                    bbox=bbox_obj,
+                                    class_id=int(d.get("class_id", 0)),
+                                    class_name=str(d.get("class_name", "unknown")),
+                                    confidence=float(d.get("latest_confidence", 0.8)),
+                                    track_id=int(d.get("track_id", 0)),
+                                )
+                                f_idx = int(d.get("first_seen_frame", 0))
+                                frames_map.setdefault(f_idx, []).append(td)
+
+                    native_safety_events: List[UrbanEventData] = []
+                    for f_idx, tracked_list in sorted(frames_map.items()):
+                        ts = f_idx / max(1.0, fps)
+                        fr = FrameResult(
+                            frame_number=f_idx,
+                            timestamp=ts,
+                            tracked_detections=tracked_list,
+                        )
+                        evs = analyser.analyse(
+                            frame_result=fr,
+                            frame_number=f_idx,
+                            timestamp=ts,
+                            frame_height=height,
+                            frame_width=width,
+                        )
+                        for ev in evs:
+                            ev.latitude = video_lat
+                            ev.longitude = video_lon
+                            native_safety_events.append(ev)
+
+                    t_safety = time.monotonic() - t0
+                    safety_urban_events = native_safety_events
+                    engine_statuses["safety"] = {
+                        "status": "completed",
+                        "runtime_sec": round(t_safety, 2),
+                        "events_count": len(safety_urban_events),
+                        "engine": "Native Pedestrian & VRU Safety Analyser",
+                    }
+                except Exception as e:
+                    logger.exception("[%s] Native Safety AI failed: %s", job_id, e)
                     engine_statuses["safety"] = {"status": "failed", "error": str(e)}
                 emit_status(ProcessingStatus.SAFETY_ANALYSIS, 80.0, {"safety": engine_statuses["safety"]})
         else:
@@ -367,11 +426,13 @@ class UrbanAIPipeline:
 
                 # Convert incident detections to UrbanEventData
                 from app.ai.models.event_types import EventSeverity, EventType
+                is_true_accident = inc_report.collision.detected and getattr(inc_report.collision, "operational_tier", "") == "DISPATCH_EMERGENCY"
+
                 if inc_report.collision.detected or inc_report.collision.near_collision_flagged:
                     incident_urban_events.append(
                         UrbanEventData(
-                            event_type=EventType.ACCIDENT if inc_report.collision.detected else EventType.NEAR_MISS,
-                            severity=EventSeverity.CRITICAL if inc_report.collision.detected else EventSeverity.HIGH,
+                            event_type=EventType.ACCIDENT if is_true_accident else EventType.NEAR_MISS,
+                            severity=EventSeverity.CRITICAL if is_true_accident else EventSeverity.HIGH,
                             confidence=inc_report.collision.confidence,
                             frame_number=inc_report.collision.peak_frame_idx or 0,
                             timestamp=inc_report.collision.peak_timestamp_sec or 0.0,
@@ -380,6 +441,8 @@ class UrbanAIPipeline:
                             description=(
                                 f"Collision candidate detected (Score: {int(inc_report.collision.confidence*100)}%). "
                                 f"Involved tracks: {inc_report.collision.involved_track_ids}."
+                                if is_true_accident
+                                else f"Near-collision / vehicle proximity interaction (Score: {int(inc_report.collision.confidence*100)}%). Involved tracks: {inc_report.collision.involved_track_ids}."
                             ),
                             extra_metadata={
                                 "fusion_score": inc_report.collision.fused_incident_score,
@@ -411,7 +474,7 @@ class UrbanAIPipeline:
                         )
                     )
 
-                if inc_report.hit_and_run.is_hit_and_run_candidate:
+                if inc_report.hit_and_run.is_hit_and_run_candidate and is_true_accident:
                     incident_urban_events.append(
                         UrbanEventData(
                             event_type=EventType.ACCIDENT,

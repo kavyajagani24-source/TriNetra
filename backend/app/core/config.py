@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     """Centralised application settings loaded from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", str(Path(__file__).resolve().parents[2] / ".env")),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -38,6 +38,19 @@ class Settings(BaseSettings):
     DATABASE_URL: str = (
         "postgresql+psycopg://urbaneye:urbaneye@localhost:5432/urbaneye"
     )
+
+    @field_validator("DATABASE_URL", mode="after")
+    @classmethod
+    def resolve_sqlite_url(cls, v: str) -> str:
+        """Resolve relative SQLite database URLs to backend/urbaneye.db absolute path."""
+        if v.startswith("sqlite:///") and not v.startswith("sqlite:////"):
+            rel_part = v.replace("sqlite:///", "", 1)
+            # If relative path like ./urbaneye.db or urbaneye.db
+            backend_dir = Path(__file__).resolve().parents[2]
+            clean_rel = rel_part.lstrip("./").lstrip(".\\")
+            abs_db_path = (backend_dir / clean_rel).resolve()
+            return f"sqlite:///{abs_db_path.as_posix()}"
+        return v
 
     # ── Storage ───────────────────────────────────────────────────────────────
     STORAGE_PATH: str = "storage"

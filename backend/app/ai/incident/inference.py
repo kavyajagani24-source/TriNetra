@@ -884,17 +884,18 @@ class IncidentPipeline:
             peak_impact_ts = neural_collision_candidate.peak_timestamp_sec
             peak_impact_frame = neural_collision_candidate.peak_frame_idx
 
+        is_dispatch_emergency = fusion_res.collision_detected and getattr(fusion_res, "operational_tier", "") == "DISPATCH_EMERGENCY"
         collision_candidate = CollisionCandidate(
-            detected=fusion_res.collision_detected,
+            detected=is_dispatch_emergency,
             confidence=fusion_res.fused_incident_score,
             model_confidence=neural_prob,
             pairwise_score=pairwise_score,
             kinematic_corroboration=has_iou_contact,
             fused_incident_score=fusion_res.fused_incident_score,
-            near_collision_flagged=fusion_res.near_collision_flagged,
-            collision_class=fusion_res.collision_class,
+            near_collision_flagged=fusion_res.near_collision_flagged or (fusion_res.collision_detected and not is_dispatch_emergency),
+            collision_class="COLLISION_CANDIDATE" if is_dispatch_emergency else ("NEAR_COLLISION" if (fusion_res.near_collision_flagged or fusion_res.collision_detected) else "NORMAL"),
             fusion_mode=fusion_res.fusion_mode,
-            status=fusion_res.status,
+            status="COLLISION_CANDIDATE" if is_dispatch_emergency else "REVIEW_REQUIRED",
             operational_tier=getattr(fusion_res, "operational_tier", "NORMAL_TRAFFIC"),
             peak_timestamp_sec=peak_impact_ts if (fusion_res.collision_detected or fusion_res.near_collision_flagged) else None,
             peak_frame_idx=peak_impact_frame if (fusion_res.collision_detected or fusion_res.near_collision_flagged) else None,
