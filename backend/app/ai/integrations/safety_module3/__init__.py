@@ -3,7 +3,7 @@ TriNetra — Module 3 Safety Integration Adapter
 
 Module 3 is authoritative for:
   - Pedestrian / VRU Safety Intelligence
-  - YOLO11n + ByteTrack tracking
+  - YOLO11n + VRU tracking
   - Trajectory analysis
   - Crossing / road-entry / school-zone reasoning
   - Risk engine (heuristic risk score — NOT collision probability)

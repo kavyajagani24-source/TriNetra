@@ -37,7 +37,7 @@ class EvidenceManager:
 
     def __init__(self, base_output_dir: Optional[Path] = None):
         if base_output_dir is None:
-            self.base_output_dir = Path(__file__).resolve().parent.parent.parent / "outputs" / "api_runs" / "incident"
+            self.base_output_dir = Path(__file__).resolve().parents[3] / "outputs" / "api_runs" / "incident"
         else:
             self.base_output_dir = Path(base_output_dir)
         self.base_output_dir.mkdir(parents=True, exist_ok=True)

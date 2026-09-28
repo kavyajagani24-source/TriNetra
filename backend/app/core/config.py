@@ -112,6 +112,7 @@ class Settings(BaseSettings):
     SAFETY_AI_ENABLED: bool = True
     ROAD_AI_ENABLED: bool = True
     TRAFFIC_AI_ENABLED: bool = True
+    INCIDENT_AI_ENABLED: bool = True
 
     # ── AI Hardware Device Settings ──────────────────────────────────────────
     AI_DEVICE: str = "auto"

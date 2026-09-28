@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { AndheriIntelligenceMap, MapLegend } from "@/components/maps/MapView";
+import { useStore } from "@/state/app-store";
 import {
   ANDHERI_ROADS,
   ANDHERI_ISSUES,
@@ -27,6 +28,8 @@ import evidenceWater from "@/assets/evidence-water.jpg";
 import evidenceTraffic from "@/assets/evidence-traffic.jpg";
 
 export function CityMapPage() {
+  const { issues, buses, demoMode, selectIssue } = useStore();
+
   // Layer visibility states (Native GIS Controls)
   const [showRoadCondition, setShowRoadCondition] = useState(true);
   const [showIssues, setShowIssues] = useState(true);
@@ -37,17 +40,22 @@ export function CityMapPage() {
   // Panel & Selection states
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [selectedRoad, setSelectedRoad] = useState<AndheriRoad | null>(null);
-  const [selectedIssue, setSelectedIssue] = useState<AndheriIssue | null>(null);
+  const [selectedIssue, setSelectedIssue] = useState<any | null>(null);
 
   const handleSelectRoad = (road: AndheriRoad) => {
     setSelectedRoad(road);
     setSelectedIssue(null);
   };
 
-  const handleSelectIssue = (issue: AndheriIssue) => {
-    setSelectedIssue(issue);
-    const road = ANDHERI_ROADS.find((r) => r.id === issue.roadId) ?? null;
+  const handleSelectIssue = (issue: any) => {
+    const issueObj = typeof issue === "string"
+      ? (issues.find((i) => i.id === issue) as any) || (demoMode ? ANDHERI_ISSUES.find((i) => i.id === issue) : null)
+      : issue;
+    if (!issueObj) return;
+    setSelectedIssue(issueObj);
+    const road = ANDHERI_ROADS.find((r) => r.id === issueObj.roadId) ?? null;
     setSelectedRoad(road);
+    selectIssue(issueObj.id);
   };
 
   const hasSelection = Boolean(selectedIssue || selectedRoad);
@@ -62,6 +70,8 @@ export function CityMapPage() {
       <div className="relative h-full w-full overflow-hidden bg-[#0A101D] select-none">
         {/* Full Viewport Map Canvas: THE MAP IS THE PRODUCT */}
         <AndheriIntelligenceMap
+          issues={issues}
+          buses={buses}
           showRoadCondition={showRoadCondition}
           showIssues={showIssues}
           showFleet={showFleet}
@@ -71,6 +81,7 @@ export function CityMapPage() {
           selectedIssueId={selectedIssue?.id}
           onSelectRoad={handleSelectRoad}
           onSelectIssue={handleSelectIssue}
+          demoMode={demoMode}
           className="h-full w-full"
         />
 
@@ -92,12 +103,12 @@ export function CityMapPage() {
                     ROAD INTELLIGENCE
                   </h2>
                   <p className="font-ui text-[11px] text-[#66736D] font-medium mt-0.5">
-                    Andheri, Mumbai
+                    {demoMode ? "Andheri, Mumbai (Demo Benchmark)" : "Live Telemetry Network"}
                   </p>
                 </div>
                 <span className="inline-flex items-center gap-1 rounded bg-[#EEF7F1] border border-[#DDEFE5] px-1.5 py-0.5 text-[10px] font-semibold text-[#245B45]">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#10b981]" />
-                  Active
+                  {demoMode ? "Demo" : "Live"}
                 </span>
               </div>
             </div>
@@ -113,32 +124,66 @@ export function CityMapPage() {
                   <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-2">
                     <p className="text-[10px] text-[#66736D]">Surveyed</p>
                     <p className="font-data text-sm font-bold text-[#1F2933] mt-0.5">
-                      {ANDHERI_STATS.surveyedSegments} <span className="font-data text-[10px] font-normal text-[#66736D]">segments</span>
+                      {demoMode ? ANDHERI_STATS.surveyedSegments : Math.max(0, issues.filter(i => Boolean(i.position)).length)} <span className="font-data text-[10px] font-normal text-[#66736D]">segments</span>
                     </p>
                   </div>
 
                   <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-2">
                     <p className="text-[10px] text-[#66736D]">Issues</p>
-                    <p className="font-data text-sm font-bold text-[#D97706] mt-0.5">
-                      {ANDHERI_STATS.totalIssues} <span className="font-data text-[10px] font-normal text-[#66736D]">detected</span>
+                    <p className="font-data text-sm font-bold text-[#1F2933] mt-0.5">
+                      {demoMode ? ANDHERI_STATS.totalIssues : issues.length} <span className="font-data text-[10px] font-normal text-[#66736D]">detected</span>
                     </p>
                   </div>
 
                   <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-2">
                     <p className="text-[10px] text-[#66736D]">Priority</p>
                     <p className="font-data text-sm font-bold text-[#DC2626] mt-0.5">
-                      {ANDHERI_STATS.priorityIssues} <span className="text-[10px] font-normal text-[#DC2626]">critical</span>
+                      {demoMode ? ANDHERI_STATS.priorityIssues : issues.filter(i => i.priority === "P1" || i.severity === "critical").length} <span className="text-[10px] font-normal text-[#DC2626]">critical</span>
                     </p>
                   </div>
 
                   <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-2">
                     <p className="text-[10px] text-[#66736D]">Fleet</p>
                     <p className="font-data text-sm font-bold text-[#2563EB] mt-0.5">
-                      {ANDHERI_STATS.activeBuses} <span className="font-data text-[10px] font-normal text-[#66736D]">buses</span>
+                      {demoMode ? ANDHERI_STATS.activeBuses : buses.filter(b => b.status === "active").length} <span className="font-data text-[10px] font-normal text-[#66736D]">buses</span>
                     </p>
                   </div>
                 </div>
               </div>
+
+              {/* SECTION: GPS UNAVAILABLE (TRANSIT INGESTION) */}
+              {!demoMode && issues.filter((i) => !i.position).length > 0 && (
+                <div className="border-t border-[#D9E2DC] pt-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                      GPS Unavailable ({issues.filter((i) => !i.position).length})
+                    </p>
+                    <span className="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 px-1 py-0.2 rounded font-mono">
+                      Transit Ingest
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#66736D]">
+                    Footage without geotags. Detected road defects available for inspection:
+                  </p>
+                  <div className="space-y-1 max-h-36 overflow-y-auto">
+                    {issues.filter((i) => !i.position).map((unloc) => (
+                      <div
+                        key={unloc.id}
+                        onClick={() => handleSelectIssue(unloc)}
+                        className="p-1.5 rounded border border-[#D9E2DC] hover:border-[#245B45] hover:bg-[#EEF7F1] cursor-pointer flex items-center justify-between transition-colors"
+                      >
+                        <div className="min-w-0 pr-1">
+                          <p className="text-[11px] font-semibold text-[#1F2933] truncate">{unloc.title}</p>
+                          <p className="text-[9px] text-[#66736D] truncate">{unloc.road}</p>
+                        </div>
+                        <span className="text-[9px] font-bold uppercase px-1 rounded bg-[#FEF2F2] text-[#DC2626]">
+                          {unloc.priority}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* SECTION: ROAD CONDITION */}
               <div className="border-t border-[#D9E2DC] pt-3">
@@ -392,20 +437,47 @@ function IssueDetailDrawer({
   issue,
   onClose,
 }: {
-  issue: AndheriIssue;
+  issue: any;
   onClose: () => void;
 }) {
+  const { assignIssue, setStatus } = useStore();
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [assignedTeam, setAssignedTeam] = useState(issue.assignedTo || "");
+  const [selectedDept, setSelectedDept] = useState(issue.department || "PWD");
+  const [selectedPriority, setSelectedPriority] = useState(issue.priority || "P1");
+  const [assignedZone, setAssignedZone] = useState(issue.ward || "Zone 1 - Western Corridor");
+  const [dueDate, setDueDate] = useState("2026-10-02");
+  const [taskSubmitted, setTaskSubmitted] = useState(false);
+
   const isCritical = issue.severity === "critical";
   const isMajor = issue.severity === "major";
 
   const evidenceImg =
-    issue.type === "crack"
+    issue.evidenceUrl ||
+    (issue.type === "crack"
       ? evidenceWater
       : issue.type === "debris"
       ? evidenceTraffic
-      : evidencePothole;
+      : evidencePothole);
 
-  const confidencePct = Math.round(issue.confidence * 100);
+  const confidencePct = Math.round((issue.confidence || 0.88) * 100);
+  const obsCount = issue.observedBy || issue.observationCount || 1;
+
+  const handleAssignTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignedTeam.trim()) return;
+    assignIssue(issue.id, {
+      to: assignedTeam.trim(),
+      department: selectedDept,
+      priority: selectedPriority,
+      ward: assignedZone,
+    });
+    setTaskSubmitted(true);
+    setTimeout(() => {
+      setTaskSubmitted(false);
+      setShowTaskModal(false);
+    }, 1200);
+  };
 
   return (
     <>
@@ -416,7 +488,7 @@ function IssueDetailDrawer({
             {issue.title}
           </h3>
           <p className="text-xs text-[#66736D] mt-0.5 font-medium">
-            {issue.roadName}, Andheri
+            {issue.roadName || issue.road || "Survey Corridor"}, {issue.ward || "Corridor"}
           </p>
 
           <div className="flex items-center gap-2 mt-1.5">
@@ -430,17 +502,17 @@ function IssueDetailDrawer({
               }`}
             >
               <AlertTriangle className="h-3 w-3" />
-              {issue.severity.toUpperCase()}
+              {issue.severity?.toUpperCase() || "MODERATE"}
             </span>
             <span className="text-[11px] text-[#66736D]">
-              {confidencePct}% confidence · {issue.observedBy} bus observations · 14 min ago
+              {confidencePct}% confidence · {obsCount} bus {obsCount === 1 ? "pass" : "passes"}
             </span>
           </div>
         </div>
 
         <button
           onClick={onClose}
-          className="rounded p-1 text-[#66736D] hover:bg-[#F3F6F4] hover:text-[#1F2933] transition-colors"
+          className="rounded p-1 text-[#66736D] hover:bg-[#F3F6F4] hover:text-[#1F2933] transition-colors cursor-pointer"
           title="Close Inspection"
         >
           <X className="h-4 w-4" />
@@ -449,10 +521,10 @@ function IssueDetailDrawer({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-        {/* LEVEL 2: Evidence Presentation (Section 10: ONE LARGE IMAGE) */}
+        {/* LEVEL 2: Evidence Presentation */}
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wider text-[#66736D] mb-1.5">
-            Evidence
+            Visual Evidence
           </p>
 
           <div className="relative aspect-video w-full rounded border border-[#D9E2DC] overflow-hidden bg-black shadow-xs">
@@ -461,18 +533,17 @@ function IssueDetailDrawer({
               alt="Road Condition Evidence"
               className="h-full w-full object-cover"
             />
-            {/* Clean Realistic Inspection Box (No neon, no excessive HUD) */}
             <div className="absolute inset-x-8 top-6 bottom-7 border-1.5 border-[#DC2626] bg-[#DC2626]/10 rounded-xs pointer-events-none">
               <span className="absolute -top-4 left-0 rounded bg-[#DC2626] px-1 py-0.2 text-[8px] font-bold text-white uppercase tracking-wider">
-                {issue.type === "safety_hotspot" ? "Hazard" : issue.type.charAt(0).toUpperCase() + issue.type.slice(1)} · {confidencePct}%
+                {issue.type === "safety_hotspot" ? "Hazard" : (issue.type || "Hazard").charAt(0).toUpperCase() + (issue.type || "Hazard").slice(1)} · {confidencePct}%
               </span>
             </div>
           </div>
 
           <div className="mt-1.5 flex items-center justify-between text-[10px] text-[#66736D] px-1">
-            <span>Observed: 14 min ago</span>
+            <span>Observed: {issue.lastObservedLabel || "Recent"}</span>
             <span>Confidence: {confidencePct}%</span>
-            <span>Source: Bus observation</span>
+            <span>Source: Transit Telemetry</span>
           </div>
         </div>
 
@@ -480,20 +551,131 @@ function IssueDetailDrawer({
         <div className="rounded border border-[#D9E2DC] bg-[#F8FAF8] p-3 space-y-2.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-[#66736D] font-medium">Status</span>
-            <span className="font-semibold text-[#D97706] bg-[#FFFBEB] border border-[#FDE68A] px-2 py-0.5 rounded text-[11px]">
-              Under Review
+            <span className="font-semibold text-[#D97706] bg-[#FFFBEB] border border-[#FDE68A] px-2 py-0.5 rounded text-[11px] capitalize">
+              {issue.status?.replace(/_/g, " ") || "Under Review"}
             </span>
           </div>
 
-          <div className="flex gap-2">
-            <button className="flex-1 rounded bg-[#245B45] hover:bg-[#245B45]/90 text-white font-semibold text-xs py-1.5 shadow-xs transition-colors flex items-center justify-center gap-1.5">
-              <Wrench className="h-3.5 w-3.5" />
-              Open Task
-            </button>
-            <button className="rounded border border-[#D9E2DC] bg-white hover:bg-[#F3F6F4] text-[#1F2933] font-semibold text-xs px-3 py-1.5 transition-colors">
-              View History
-            </button>
-          </div>
+          {issue.assignedTo && (
+            <div className="flex items-center justify-between text-xs border-t border-[#D9E2DC] pt-2">
+              <span className="text-[#66736D] font-medium">Assigned Crew</span>
+              <span className="font-bold text-[#1F2933] bg-white border border-[#D9E2DC] px-2 py-0.5 rounded">
+                {issue.assignedTo}
+              </span>
+            </div>
+          )}
+
+          {!showTaskModal ? (
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setShowTaskModal(true)}
+                className="flex-1 rounded bg-[#245B45] hover:bg-[#245B45]/90 text-white font-semibold text-xs py-1.5 shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                {issue.assignedTo ? "Reassign Task" : "Open Task / Dispatch"}
+              </button>
+              <button
+                onClick={() => setStatus(issue.id, "confirmed")}
+                className="rounded border border-[#D9E2DC] bg-white hover:bg-[#F3F6F4] text-[#1F2933] font-semibold text-xs px-3 py-1.5 transition-colors cursor-pointer"
+              >
+                Verify
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleAssignTask} className="space-y-2.5 pt-2 border-t border-[#D9E2DC]">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs text-slate-800">Assign Municipal Work Order</span>
+                <button
+                  type="button"
+                  onClick={() => setShowTaskModal(false)}
+                  className="text-slate-400 hover:text-slate-700 text-[11px]"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Responsible Department</label>
+                <select
+                  value={selectedDept}
+                  onChange={(e) => setSelectedDept(e.target.value as any)}
+                  className="w-full rounded border border-[#D9E2DC] bg-white px-2 py-1 text-xs outline-none"
+                >
+                  <option value="PWD">PWD (Public Works Department)</option>
+                  <option value="Traffic Police">Traffic Police</option>
+                  <option value="Transport">Transport / Fleet Transit</option>
+                  <option value="Sanitation">Sanitation</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Priority</label>
+                  <select
+                    value={selectedPriority}
+                    onChange={(e) => setSelectedPriority(e.target.value as any)}
+                    className="w-full rounded border border-[#D9E2DC] bg-white px-2 py-1 text-xs outline-none"
+                  >
+                    <option value="P1">P1 - Critical (24h)</option>
+                    <option value="P2">P2 - Moderate (72h)</option>
+                    <option value="P3">P3 - Watch (7d)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Target Due Date</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full rounded border border-[#D9E2DC] bg-white px-2 py-1 text-xs outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">
+                  Assigned Team / Contractor
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Ward K-East Asphalt Unit 3"
+                  value={assignedTeam}
+                  onChange={(e) => setAssignedTeam(e.target.value)}
+                  className="w-full rounded border border-[#D9E2DC] bg-white px-2.5 py-1 text-xs outline-none focus:border-[#245B45]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">
+                  Assigned Operational Zone (vs AI Detected Location)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Kurla Depot Corridor"
+                  value={assignedZone}
+                  onChange={(e) => setAssignedZone(e.target.value)}
+                  className="w-full rounded border border-[#D9E2DC] bg-white px-2.5 py-1 text-xs outline-none focus:border-[#245B45]"
+                />
+                <span className="text-[9px] text-slate-400 block mt-0.5">
+                  AI Source: {issue.roadName || issue.road || "Transit Ingestion"}
+                </span>
+              </div>
+
+              {taskSubmitted ? (
+                <div className="rounded bg-[#EEF7F1] border border-[#DDEFE5] p-2 text-center text-xs text-[#245B45] font-semibold">
+                  ✓ Work Order Assigned Successfully
+                </div>
+              ) : (
+                <button
+                  type="submit"
+                  className="w-full rounded bg-[#245B45] hover:bg-[#1e4a38] text-white font-semibold text-xs py-1.5 transition-colors shadow-xs"
+                >
+                  Confirm & Dispatch Work Order
+                </button>
+              )}
+            </form>
+          )}
         </div>
 
         {/* Recommended Remediation Tags */}
@@ -502,7 +684,7 @@ function IssueDetailDrawer({
             Recommended Remediation
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {["+ Patching", "+ Surface Dressing", "+ Joint Sealing"].map((tag) => (
+            {["+ Cold Patching", "+ Surface Dressing", "+ Sub-base Compaction"].map((tag) => (
               <span
                 key={tag}
                 className="rounded border border-[#D9E2DC] bg-[#F8FAF8] hover:bg-[#EEF7F1] hover:text-[#245B45] hover:border-[#DDEFE5] px-2 py-0.5 text-[11px] font-medium text-[#1F2933] transition-colors cursor-pointer"
@@ -513,7 +695,7 @@ function IssueDetailDrawer({
           </div>
         </div>
 
-        {/* LEVEL 4: TECHNICAL DETAILS (Collapsed by Default, Section 8) */}
+        {/* LEVEL 4: TECHNICAL DETAILS (Collapsed by Default) */}
         <details className="group border-t border-[#D9E2DC] pt-3 text-[11px] text-[#66736D]">
           <summary className="cursor-pointer font-medium text-[#66736D] hover:text-[#1F2933] flex items-center justify-between py-1 outline-none">
             <span>Technical details</span>
@@ -521,8 +703,14 @@ function IssueDetailDrawer({
           </summary>
           <div className="mt-2 rounded bg-[#F8FAF8] border border-[#D9E2DC] p-2.5 font-mono text-[10px] space-y-1 text-[#66736D]">
             <p>Record: {issue.id}</p>
-            <p>Segment: {issue.roadId}</p>
-            <p>Coordinates: {issue.position.lat.toFixed(5)}° N, {issue.position.lng.toFixed(5)}° E</p>
+            <p>Corridor: {issue.roadName || issue.road || "Transit Ingestion"}</p>
+            <p>
+              Coordinates:{" "}
+              {issue.position?.lat && issue.position?.lng
+                ? `${issue.position.lat.toFixed(5)}° N, ${issue.position.lng.toFixed(5)}° E`
+                : "Transit Ingestion (GPS Unavailable)"}
+            </p>
+            <p>Confidence: {confidencePct}%</p>
           </div>
         </details>
       </div>

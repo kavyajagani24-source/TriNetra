@@ -27,6 +27,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { useStore } from "@/state/app-store";
 import { useVideos } from "@/hooks/useVideos";
 import { useBuses } from "@/hooks/useBuses";
 import { getVideoEvents } from "@/services/api/events";
@@ -40,9 +41,9 @@ import type { BackendJobResults, BackendUrbanEvent, BackendVideo, VideoProcessin
 import type { SafetyEventListItem, SafetyRun } from "@/types/safety";
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   Unified Event Model across Road, Traffic, Safety, and Incident modules
+   Unified Event Model across Road, Traffic, Safety, Incident, and Evidence modules
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-export type AnalysisModule = "overview" | "road" | "traffic" | "safety" | "incident";
+export type AnalysisModule = "overview" | "road" | "traffic" | "safety" | "incident" | "evidence";
 
 export interface UnifiedEvent {
   id: string;
@@ -363,11 +364,20 @@ function VideoPlayer({
   events,
   seekToTime,
   onEventSelect,
+  annotatedStreams,
+  activeModule,
 }: {
   video: BackendVideo;
   events: UnifiedEvent[];
   seekToTime: number | null;
   onEventSelect?: (e: UnifiedEvent) => void;
+  annotatedStreams?: {
+    road?: string | null;
+    traffic?: string | null;
+    safety?: string | null;
+    incident?: string | null;
+  };
+  activeModule?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -378,13 +388,47 @@ function VideoPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [selectedStreamKey, setSelectedStreamKey] = useState<string>("raw");
+  const lastTimeRef = useRef<number>(0);
 
-  // Construct absolute streaming URL from backend
-  const streamUrl = useMemo(() => {
-    if (!video.stream_url) return null;
-    if (video.stream_url.startsWith("http")) return video.stream_url;
-    return `${env.backendUrl}${video.stream_url}`;
-  }, [video.stream_url]);
+  // Available stream options (Raw footage vs AI overlays)
+  const availableStreams = useMemo(() => {
+    const list: { key: string; label: string; badge: string; url: string }[] = [];
+    const resolveUrl = (u: string) => {
+      if (u.startsWith("http://") || u.startsWith("https://")) return u;
+      return `${env.backendUrl}${u.startsWith("/") ? u : `/${u}`}`;
+    };
+
+    if (video.stream_url) {
+      list.push({ key: "raw", label: "Raw", badge: "RAW CAMERA", url: resolveUrl(video.stream_url) });
+    }
+    if (annotatedStreams?.road) {
+      list.push({ key: "road", label: "Road AI", badge: "RDD2022 OVERLAY", url: resolveUrl(annotatedStreams.road) });
+    }
+    if (annotatedStreams?.traffic) {
+      list.push({ key: "traffic", label: "Traffic Flow", badge: "YOLO11x + URBIAN", url: resolveUrl(annotatedStreams.traffic) });
+    }
+    if (annotatedStreams?.incident) {
+      list.push({ key: "incident", label: "Incident AI", badge: "INCIDENT OVERLAY", url: resolveUrl(annotatedStreams.incident) });
+    }
+    return list;
+  }, [video.stream_url, annotatedStreams]);
+
+  // Synchronize stream with active tab if available
+  useEffect(() => {
+    if (activeModule && activeModule !== "overview") {
+      const match = availableStreams.find((s) => s.key === activeModule);
+      if (match) {
+        setSelectedStreamKey(match.key);
+      }
+    }
+  }, [activeModule, availableStreams]);
+
+  const activeStream = useMemo(() => {
+    return availableStreams.find((s) => s.key === selectedStreamKey) || availableStreams[0] || null;
+  }, [availableStreams, selectedStreamKey]);
+
+  const streamUrl = activeStream ? activeStream.url : null;
 
   // Handle external seek requests
   const prevSeekRef = useRef<number | null>(null);
@@ -410,7 +454,9 @@ function VideoPlayer({
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
+      const ct = videoRef.current.currentTime;
+      setCurrentTime(ct);
+      lastTimeRef.current = ct;
       if (!duration && videoRef.current.duration) {
         setDuration(videoRef.current.duration);
       }
@@ -421,6 +467,12 @@ function VideoPlayer({
     if (videoRef.current) {
       const d = videoRef.current.duration;
       if (d && !isNaN(d)) setDuration(d);
+      if (lastTimeRef.current > 0) {
+        videoRef.current.currentTime = lastTimeRef.current;
+        if (isPlaying) {
+          videoRef.current.play().catch(() => {});
+        }
+      }
     }
   };
 
@@ -457,6 +509,16 @@ function VideoPlayer({
       className="group relative bg-[#0B1E14] rounded-xl overflow-hidden border border-[#174A35] shadow-lg w-full"
       style={{ aspectRatio: "16 / 9", minHeight: "240px" }}
     >
+      {/* Active Stream Indicator Badge */}
+      {activeStream && (
+        <div className="absolute top-3 left-3 z-20 flex items-center gap-2 pointer-events-none">
+          <span className="rounded bg-black/80 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-[#4ADE80] border border-white/10 backdrop-blur-xs flex items-center gap-1.5 shadow-md">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#4ADE80] animate-pulse" />
+            {activeStream.badge}
+          </span>
+        </div>
+      )}
+
       {/* Video Element — fills entire container */}
       {streamUrl ? (
         <video
@@ -615,7 +677,32 @@ function VideoPlayer({
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
+            {/* Stream View Selector (Raw vs AI Annotated) */}
+            {availableStreams.length > 1 && (
+              <div className="flex items-center gap-1 bg-black/70 border border-white/20 rounded-md p-0.5">
+                {availableStreams.map((st) => (
+                  <button
+                    key={st.key}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (videoRef.current) lastTimeRef.current = videoRef.current.currentTime;
+                      setSelectedStreamKey(st.key);
+                    }}
+                    className={cn(
+                      "px-2 py-0.5 text-[10px] rounded transition-all font-medium cursor-pointer",
+                      activeStream?.key === st.key
+                        ? "bg-[#2F7D57] text-white font-bold shadow-xs"
+                        : "text-white/70 hover:text-white hover:bg-white/10"
+                    )}
+                  >
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Speed selector */}
             <select
               value={playbackRate}
@@ -658,13 +745,17 @@ function OverviewTab({
   onEventSelect,
   onTriggerAnalysis,
   processing,
+  selectedMode,
+  setSelectedMode,
 }: {
   video: BackendVideo;
   statusData: VideoProcessingStatusResponse | null;
   events: UnifiedEvent[];
   onEventSelect: (e: UnifiedEvent) => void;
-  onTriggerAnalysis: () => void;
+  onTriggerAnalysis: (mode: string) => void;
   processing: boolean;
+  selectedMode: string;
+  setSelectedMode: (m: string) => void;
 }) {
   const isDone = video.status === "READY" || video.status === "COMPLETED";
   const roadCount = events.filter((e) => e.module === "road").length;
@@ -672,97 +763,180 @@ function OverviewTab({
   const safetyCount = events.filter((e) => e.module === "safety").length;
   const incidentCount = events.filter((e) => e.module === "incident").length;
 
+  const MODES = [
+    { id: "multi_engine", label: "All AI Engines (Unified)", icon: Sparkles, desc: "Run Road, Traffic, Safety & Incident pipelines concurrently" },
+    { id: "road", label: "Road & Surface", icon: AlertTriangle, desc: "RDD2022 pothole & crack segmentation" },
+    { id: "traffic", label: "Traffic Flow", icon: Car, desc: "Vehicle volume, class velocity & density" },
+    { id: "safety", label: "VRU Safety", icon: Shield, desc: "Pedestrian & vulnerable user hazard engine" },
+    { id: "incident", label: "Incident + ANPR", icon: Zap, desc: "Collision, rash driving & license recognition" },
+  ];
+
+  // Engine stage telemetry derived strictly from backend statusData
+  const engineStatuses = statusData?.engine_statuses || {};
+  const jobStatus = statusData?.job_status;
+
+  const getStageState = (engineKey: string): { status: string; reason?: string } => {
+    const raw = engineStatuses[engineKey];
+    if (raw) {
+      if (typeof raw === "string") return { status: raw };
+      return { status: raw.status || "queued", reason: raw.reason || raw.error };
+    }
+    if (processing) {
+      if (jobStatus === "ROAD_ANALYSIS" && engineKey === "road") return { status: "running" };
+      if (jobStatus === "TRAFFIC_ANALYSIS" && engineKey === "traffic") return { status: "running" };
+      if (jobStatus === "SAFETY_ANALYSIS" && engineKey === "safety") return { status: "running" };
+      if (jobStatus === "INCIDENT_ANALYSIS" && engineKey === "incident") return { status: "running" };
+      return { status: "queued" };
+    }
+    if (isDone) return { status: "completed" };
+    return { status: "queued" };
+  };
+
+  const STAGES = [
+    { key: "road", name: "Road Defects (RDD2022)", icon: AlertTriangle, count: roadCount, unit: "defects" },
+    { key: "traffic", name: "Traffic Flow (UrbianTracker)", icon: Car, count: trafficCount, unit: "flows" },
+    { key: "safety", name: "VRU Safety (Pedestrian)", icon: Shield, count: safetyCount, unit: "hazards" },
+    { key: "incident", name: "Incident + ANPR (Multi-Signal)", icon: Zap, count: incidentCount, unit: "candidates" },
+  ];
+
   return (
     <div className="space-y-4">
-      {/* Engine Status Grid */}
-      <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
-        <div className="flex items-center justify-between">
+      {/* Engine Status & Execution Control */}
+      <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              Multi-Engine Analysis Pipeline
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              AI Processing Engine Control
             </h3>
             <p className="text-[11px] text-slate-500">
-              One source footage feeds Road, Traffic, Safety, and Incident neural models
+              Execute neural inference pipelines on this video asset under unified telemetry
             </p>
           </div>
           <button
-            onClick={onTriggerAnalysis}
+            onClick={() => onTriggerAnalysis(selectedMode)}
             disabled={processing}
-            className="flex items-center gap-1.5 rounded bg-[#174A35] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#2F7D57] disabled:opacity-50 transition-colors shadow-xs"
+            className="flex items-center gap-2 rounded bg-[#174A35] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#2F7D57] disabled:opacity-50 transition-colors shadow-xs shrink-0"
           >
-            {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-[#4ADE80]" />}
-            {processing ? "Processing AI..." : isDone ? "Reprocess Video" : "Start Multi-Engine AI"}
+            {processing ? <Loader2 className="h-4 w-4 animate-spin text-[#4ADE80]" /> : <Sparkles className="h-4 w-4 text-[#4ADE80]" />}
+            {processing ? "Executing AI Pipeline..." : isDone ? "Reprocess Video" : "Start AI Analysis"}
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-          {/* Road */}
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3 text-amber-600" /> Road
-              </span>
-              <span className={cn("text-[9px] font-bold rounded px-1 py-0.2 border", isDone ? "bg-[#DCEFE4] text-[#174A35] border-[#2F7D57]/20" : "bg-slate-100 text-slate-500")}>
-                {isDone ? "Ready" : "Pending"}
-              </span>
-            </div>
-            <div className="font-data text-lg font-bold text-slate-900">{roadCount}</div>
-            <div className="text-[10px] text-slate-500">Defects & Hazards</div>
-          </div>
-
-          {/* Traffic */}
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1">
-                <Car className="h-3 w-3 text-sky-600" /> Traffic
-              </span>
-              <span className={cn("text-[9px] font-bold rounded px-1 py-0.2 border", isDone ? "bg-[#DCEFE4] text-[#174A35] border-[#2F7D57]/20" : "bg-slate-100 text-slate-500")}>
-                {isDone ? "Ready" : "Pending"}
-              </span>
-            </div>
-            <div className="font-data text-lg font-bold text-slate-900">{trafficCount > 0 ? trafficCount : isDone ? "Classified" : "0"}</div>
-            <div className="text-[10px] text-slate-500">Vehicle Flows</div>
-          </div>
-
-          {/* Safety */}
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1">
-                <Shield className="h-3 w-3 text-emerald-600" /> Safety
-              </span>
-              <span className={cn("text-[9px] font-bold rounded px-1 py-0.2 border", isDone ? "bg-[#DCEFE4] text-[#174A35] border-[#2F7D57]/20" : "bg-slate-100 text-slate-500")}>
-                {isDone ? "Ready" : "Pending"}
-              </span>
-            </div>
-            <div className="font-data text-lg font-bold text-slate-900">{safetyCount}</div>
-            <div className="text-[10px] text-slate-500">Pedestrian/VRU Events</div>
-          </div>
-
-          {/* Incident */}
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1">
-                <Zap className="h-3 w-3 text-rose-600" /> Incident
-              </span>
-              <span className={cn("text-[9px] font-bold rounded px-1 py-0.2 border", isDone ? "bg-[#DCEFE4] text-[#174A35] border-[#2F7D57]/20" : "bg-slate-100 text-slate-500")}>
-                {isDone ? "Ready" : "Pending"}
-              </span>
-            </div>
-            <div className="font-data text-lg font-bold text-slate-900">{incidentCount}</div>
-            <div className="text-[10px] text-slate-500">Candidates & Plates</div>
+        {/* Mode Selector */}
+        <div>
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-2">
+            Execution Mode Selector
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {MODES.map((m) => {
+              const Icon = m.icon;
+              const isSelected = selectedMode === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setSelectedMode(m.id)}
+                  disabled={processing}
+                  className={cn(
+                    "flex flex-col text-left p-2.5 rounded-lg border transition-all cursor-pointer",
+                    isSelected
+                      ? "border-[#2F7D57] bg-[#EEF7F1] shadow-2xs ring-1 ring-[#2F7D57]/30"
+                      : "border-slate-200 bg-slate-50/50 hover:bg-slate-100/70 hover:border-slate-300",
+                    processing && "opacity-60 cursor-not-allowed"
+                  )}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Icon className={cn("h-3.5 w-3.5", isSelected ? "text-[#174A35]" : "text-slate-500")} />
+                    <span className={cn("text-xs font-bold truncate", isSelected ? "text-[#174A35]" : "text-slate-700")}>
+                      {m.label}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 line-clamp-2 leading-tight">
+                    {m.desc}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Live progress if processing */}
-        {processing && (
-          <div className="pt-2">
-            <ProgressBar
-              value={statusData?.progress_percentage || 50}
-              label="Pipeline Execution in Progress"
-              sublabel={`${statusData?.frames_processed || 0} / ${statusData?.total_frames || video.frame_count || 330} frames`}
-            />
+        {/* Real-Time Multi-Stage Execution Pipeline */}
+        <div className="pt-1">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+              Stage Pipeline Status
+            </span>
+            {processing && (
+              <span className="font-mono text-[11px] text-[#2F7D57] font-bold flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> In Progress ({statusData?.frames_processed || 0} / {statusData?.total_frames || video.frame_count || 330} frames)
+              </span>
+            )}
           </div>
-        )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+            {STAGES.map((st) => {
+              const stageInfo = getStageState(st.key);
+              const state = stageInfo.status;
+              const Icon = st.icon;
+
+              const stateBadge: Record<string, { cls: string; label: string }> = {
+                running: { cls: "bg-amber-50 text-amber-800 border-amber-300 animate-pulse", label: "Running" },
+                completed: { cls: "bg-[#DCEFE4] text-[#174A35] border-[#2F7D57]/30", label: "Completed" },
+                failed: { cls: "bg-rose-50 text-rose-700 border-rose-300", label: "Failed" },
+                unavailable: { cls: "bg-slate-100 text-slate-600 border-slate-300", label: "Unavailable" },
+                skipped: { cls: "bg-slate-100 text-slate-500 border-slate-200", label: "Skipped" },
+                queued: { cls: "bg-slate-50 text-slate-600 border-slate-200", label: "Pending" },
+              };
+              const badge = stateBadge[state] || { cls: "bg-slate-50 text-slate-500 border-slate-200", label: state };
+
+              return (
+                <div
+                  key={st.key}
+                  className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-1.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5 truncate">
+                      <Icon className="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                      <span className="truncate">{st.name}</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <div>
+                      <span className="font-data text-lg font-bold text-slate-900 block leading-tight">
+                        {st.count}
+                      </span>
+                      <span className="text-[10px] text-slate-500 capitalize">{st.unit}</span>
+                    </div>
+                    <span
+                      title={stageInfo.reason || undefined}
+                      className={cn("text-[9px] font-bold uppercase rounded px-1.5 py-0.5 border", badge.cls)}
+                    >
+                      {badge.label}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Granular Progress Indicator */}
+          {processing && (
+            <div className="pt-3">
+              <ProgressBar
+                value={statusData?.progress_percentage || 25}
+                label={`Stage Active: ${jobStatus?.replace(/_/g, " ") || "Processing video frames"}`}
+                sublabel={`${statusData?.frames_processed || 0} / ${statusData?.total_frames || video.frame_count || 330} frames`}
+              />
+            </div>
+          )}
+
+          {statusData?.error_message && (
+            <div className="mt-3 rounded-md bg-rose-50 border border-rose-200 p-2.5 text-xs text-rose-700 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{statusData.error_message}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Observation Feed with Click-to-Seek */}
@@ -779,10 +953,10 @@ function OverviewTab({
               <Film className="h-8 w-8 mx-auto text-slate-300" />
               <p className="text-xs">No analysis events generated yet.</p>
               <button
-                onClick={onTriggerAnalysis}
+                onClick={() => onTriggerAnalysis(selectedMode)}
                 className="text-xs font-semibold text-[#2F7D57] hover:underline"
               >
-                Run Multi-Engine AI Analysis →
+                Run AI Pipeline →
               </button>
             </div>
           ) : (
@@ -903,14 +1077,22 @@ function TrafficTab({
 }) {
   const trafficEvents = events.filter((e) => e.module === "traffic");
 
+  const totalTracked = jobResults?.total_unique_vehicles ?? trafficEvents.length;
+  const carCount = jobResults?.vehicle_counts_by_class?.["car"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("car")).length;
+  const motoCount = jobResults?.vehicle_counts_by_class?.["motorcycle"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("motorcycle") || e.label.toLowerCase().includes("two")).length;
+  const busCount = jobResults?.vehicle_counts_by_class?.["bus"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("bus")).length;
+  const truckCount = jobResults?.vehicle_counts_by_class?.["truck"] ?? trafficEvents.filter((e) => e.label.toLowerCase().includes("truck")).length;
+  const peakDensity = jobResults?.peak_density ?? (totalTracked > 15 ? "HIGH" : totalTracked > 5 ? "MEDIUM" : totalTracked > 0 ? "LOW" : "NONE");
+  const congestion = jobResults?.avg_congestion_level ?? (totalTracked > 20 ? "HIGH" : totalTracked > 5 ? "MODERATE" : "LOW");
+
   const counts = {
-    total: jobResults?.traffic_summary?.total_unique_vehicles ?? 128,
-    cars: jobResults?.traffic_summary?.vehicle_breakdown?.["car"] ?? 64,
-    twoWheelers: jobResults?.traffic_summary?.vehicle_breakdown?.["motorcycle"] ?? 39,
-    buses: jobResults?.traffic_summary?.vehicle_breakdown?.["bus"] ?? 8,
-    trucks: jobResults?.traffic_summary?.vehicle_breakdown?.["truck"] ?? 17,
-    peakDensity: jobResults?.traffic_summary?.peak_density ?? "HIGH",
-    congestion: jobResults?.traffic_summary?.average_congestion ?? "MODERATE",
+    total: totalTracked,
+    cars: carCount,
+    twoWheelers: motoCount,
+    buses: busCount,
+    trucks: truckCount,
+    peakDensity,
+    congestion,
   };
 
   return (
@@ -923,7 +1105,7 @@ function TrafficTab({
               Traffic Intelligence & Density
             </h3>
             <p className="text-[11px] text-slate-500">
-              YOLO11x multi-class vehicle detection, DeepSORT tracking, and flow velocity
+              YOLO11x vehicle detection, UrbianTracker (Distance-IoU + class constraint), and flow velocity
             </p>
           </div>
           <span className="text-xs font-semibold text-[#2F7D57] flex items-center gap-1">
@@ -1000,6 +1182,7 @@ function SafetyTab({
   video,
   events,
   safetyRun,
+  safetyStatus,
   onEventSelect,
   selectedEvent,
   onTriggerAnalysis,
@@ -1007,6 +1190,7 @@ function SafetyTab({
   video: BackendVideo;
   events: UnifiedEvent[];
   safetyRun: SafetyRun | null;
+  safetyStatus?: { status: string; reason?: string };
   onEventSelect: (e: UnifiedEvent) => void;
   selectedEvent: UnifiedEvent | null;
   onTriggerAnalysis: () => void;
@@ -1018,6 +1202,23 @@ function SafetyTab({
 
   return (
     <div className="space-y-4">
+      {/* Safety Intelligence Module Availability Notice */}
+      {safetyStatus?.status === "unavailable" && (
+        <div className="rounded-lg border border-slate-300 bg-slate-50 p-4 space-y-1.5 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-slate-200 text-slate-700 text-[10px] font-bold uppercase px-2 py-0.5 border border-slate-300">
+              Module Unavailable
+            </span>
+            <span className="text-xs font-semibold text-slate-800">
+              Module 3 (SIH2026--Module3) Not Present on Host Node
+            </span>
+          </div>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            The Pedestrian &amp; VRU Safety Intelligence engine (SIH2026--Module3 repository) is not available in this local environment. In strict adherence to our Zero-Fabrication standards, safety telemetry is not synthesized or simulated.
+          </p>
+        </div>
+      )}
+
       {/* Safety Metric Cards */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
         <div className="flex items-center justify-between">
@@ -1029,8 +1230,16 @@ function SafetyTab({
               School zone pedestrian crossing, vulnerable road user trajectory, and collision risk scoring
             </p>
           </div>
-          <span className="text-xs font-semibold text-[#2F7D57] flex items-center gap-1">
-            <CheckCircle2 className="h-3.5 w-3.5" /> ByteTrack + Risk Engine
+          <span className={cn(
+            "text-xs font-semibold flex items-center gap-1.5",
+            safetyStatus?.status === "unavailable" ? "text-slate-500" : "text-[#2F7D57]"
+          )}>
+            {safetyStatus?.status === "unavailable" ? (
+              <span className="inline-block h-2 w-2 rounded-full bg-slate-400" />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            )}
+            {safetyStatus?.status === "unavailable" ? "Module Unavailable" : "Module 3 VRU Engine"}
           </span>
         </div>
 
@@ -1163,6 +1372,151 @@ function IncidentTab({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── 6. Evidence Tab (Visual Evidence & Forensic Artifacts) ─── */
+function EvidenceTab({
+  events,
+  onEventSelect,
+  statusData,
+}: {
+  events: UnifiedEvent[];
+  onEventSelect: (e: UnifiedEvent) => void;
+  statusData: VideoProcessingStatusResponse | null;
+}) {
+  const [selectedImg, setSelectedImg] = useState<{ url: string; title: string; desc?: string } | null>(null);
+
+  const evidenceItems = useMemo(() => {
+    const list: {
+      id: string;
+      title: string;
+      module: AnalysisModule;
+      timestamp: number;
+      url: string;
+      confidence: number;
+      severity: string;
+      event: UnifiedEvent;
+    }[] = [];
+
+    events.forEach((ev) => {
+      if (ev.evidenceUrl) {
+        list.push({
+          id: ev.id,
+          title: ev.label,
+          module: ev.module,
+          timestamp: ev.timestamp,
+          url: ev.evidenceUrl.startsWith("http") ? ev.evidenceUrl : `${env.backendUrl}${ev.evidenceUrl}`,
+          confidence: ev.confidence,
+          severity: ev.severity,
+          event: ev,
+        });
+      }
+    });
+
+    return list;
+  }, [events]);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-2 shadow-xs">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Evidence & Keyframe Archive ({evidenceItems.length})
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              Direct photographic proof captured by Road, Safety, and Incident neural models
+            </p>
+          </div>
+          <span className="text-xs font-semibold text-[#2F7D57] flex items-center gap-1">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Chain of Custody
+          </span>
+        </div>
+      </div>
+
+      {evidenceItems.length === 0 ? (
+        <div className="p-8 text-center text-slate-400 bg-white rounded-lg border border-slate-200 space-y-2 shadow-xs">
+          <Film className="h-8 w-8 mx-auto text-slate-300" />
+          <p className="text-xs font-semibold text-slate-700">No Visual Evidence Keyframes Extracted</p>
+          <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+            Run multi-engine analysis to generate defect crops, pedestrian safety risk frames, and collision candidate evidence.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {evidenceItems.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-xs hover:border-[#2F7D57] transition-all group"
+            >
+              <div
+                className="relative aspect-video bg-black cursor-pointer overflow-hidden flex items-center justify-center"
+                onClick={() => setSelectedImg({ url: item.url, title: item.title, desc: `${fmtTs(item.timestamp)} · ${item.module.toUpperCase()} · ${item.confidence}%` })}
+              >
+                <img
+                  src={item.url}
+                  alt={item.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                />
+                <div className="absolute top-2 right-2">
+                  <SeverityBadge severity={item.severity} />
+                </div>
+                <div className="absolute bottom-2 left-2 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-mono text-white">
+                  {fmtTs(item.timestamp)}
+                </div>
+              </div>
+
+              <div className="p-2.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-slate-900 truncate">{item.title}</span>
+                  <span className="text-[10px] text-slate-500 font-semibold">{item.confidence}%</span>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] font-bold uppercase text-[#2F7D57] bg-[#EEF7F1] px-1.5 py-0.5 rounded border border-[#DCEFE4]">
+                    {item.module}
+                  </span>
+                  <button
+                    onClick={() => onEventSelect(item.event)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[#174A35] hover:text-[#2F7D57] transition-colors"
+                  >
+                    <Play className="h-3 w-3" /> Seek Player
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selectedImg && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4"
+          onClick={() => setSelectedImg(null)}
+        >
+          <div
+            className="max-w-3xl w-full rounded-xl bg-white overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 bg-slate-50">
+              <div>
+                <h4 className="font-bold text-sm text-slate-900">{selectedImg.title}</h4>
+                {selectedImg.desc && <p className="text-xs text-slate-500 font-mono">{selectedImg.desc}</p>}
+              </div>
+              <button
+                onClick={() => setSelectedImg(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-3 bg-black flex items-center justify-center max-h-[70vh]">
+              <img src={selectedImg.url} alt={selectedImg.title} className="max-h-[65vh] object-contain" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1498,6 +1852,7 @@ function VideoWorkspace({
   const [activeModule, setActiveModule] = useState<AnalysisModule>("overview");
   const [selectedEvent, setSelectedEvent] = useState<UnifiedEvent | null>(null);
   const [seekToTime, setSeekToTime] = useState<number | null>(null);
+  const { refreshLiveIntelligence } = useStore();
 
   // Real backend data states
   const [statusData, setStatusData] = useState<VideoProcessingStatusResponse | null>(null);
@@ -1543,10 +1898,13 @@ function VideoWorkspace({
         const res = await getProcessingResults(jobId).catch(() => null);
         if (res) setJobResults(res);
       }
+
+      // Sync central live intelligence store
+      refreshLiveIntelligence();
     } finally {
       setLoadingData(false);
     }
-  }, [video.id]);
+  }, [video.id, refreshLiveIntelligence]);
 
   useEffect(() => {
     loadAllData();
@@ -1566,6 +1924,7 @@ function VideoWorkspace({
           clearInterval(pollTimerRef.current!);
           loadAllData();
           onRefreshVideo();
+          refreshLiveIntelligence();
         }
       }
     }, 2500);
@@ -1573,15 +1932,20 @@ function VideoWorkspace({
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     };
-  }, [processing, video.id, loadAllData, onRefreshVideo]);
+  }, [processing, video.id, loadAllData, onRefreshVideo, refreshLiveIntelligence]);
+
+  const [selectedMode, setSelectedMode] = useState<string>("multi_engine");
 
   // Trigger processing
-  const handleTriggerAnalysis = async () => {
+  const handleTriggerAnalysis = async (modeToRun?: string) => {
+    const runMode = modeToRun || selectedMode || "multi_engine";
     try {
       setProcessing(true);
-      await startProcessing(video.id);
+      await startProcessing(video.id, { mode: runMode, force_reprocess: true });
       await loadAllData();
-    } catch {
+      await refreshLiveIntelligence();
+    } catch (err) {
+      console.error("Failed to start processing:", err);
       setProcessing(false);
     }
   };
@@ -1655,6 +2019,7 @@ function VideoWorkspace({
     { key: "traffic", label: "Traffic", icon: <Car className="h-3.5 w-3.5" />, count: allEvents.filter((e) => e.module === "traffic").length },
     { key: "safety", label: "Safety", icon: <Shield className="h-3.5 w-3.5" />, count: allEvents.filter((e) => e.module === "safety").length },
     { key: "incident", label: "Incident + ANPR", icon: <Zap className="h-3.5 w-3.5" />, count: allEvents.filter((e) => e.module === "incident").length },
+    { key: "evidence", label: "Evidence", icon: <Film className="h-3.5 w-3.5" />, count: allEvents.filter((e) => Boolean(e.evidenceUrl)).length },
   ];
 
   const statusBadge = getStatusBadge(video.status);
@@ -1699,7 +2064,7 @@ function VideoWorkspace({
           </div>
         </div>
 
-        {/* 5 Authoritative Analysis Sub-Tabs */}
+        {/* 6 Authoritative Analysis Sub-Tabs */}
         <div className="flex gap-1 mt-3 border-b border-slate-200 -mx-5 px-5 overflow-x-auto">
           {TABS.map(({ key, label, icon, count }) => (
             <button
@@ -1709,7 +2074,7 @@ function VideoWorkspace({
                 setSelectedEvent(null);
               }}
               className={cn(
-                "flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium border-b-2 transition-all -mb-px shrink-0",
+                "flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium border-b-2 transition-all -mb-px shrink-0 cursor-pointer",
                 activeModule === key
                   ? "border-[#2F7D57] text-[#174A35] font-bold"
                   : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
@@ -1731,12 +2096,19 @@ function VideoWorkspace({
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left side: Video Player + Active Tab Content */}
         <div className="flex flex-1 flex-col min-w-0 overflow-y-auto p-4 space-y-4">
-          {/* HTML5 Video Player with Timeline Scrubber */}
+          {/* HTML5 Video Player with Timeline Scrubber & AI Stream Switcher */}
           <VideoPlayer
             video={video}
             events={allEvents}
             seekToTime={seekToTime}
             onEventSelect={handleEventSelect}
+            annotatedStreams={{
+              road: statusData?.annotated_road_path,
+              traffic: statusData?.annotated_traffic_path,
+              safety: statusData?.annotated_safety_path,
+              incident: statusData?.annotated_incident_path,
+            }}
+            activeModule={activeModule}
           />
 
           {/* Sub-Tab View Content */}
@@ -1748,6 +2120,8 @@ function VideoWorkspace({
               onEventSelect={handleEventSelect}
               onTriggerAnalysis={handleTriggerAnalysis}
               processing={processing}
+              selectedMode={selectedMode}
+              setSelectedMode={setSelectedMode}
             />
           )}
 
@@ -1757,7 +2131,7 @@ function VideoWorkspace({
               events={allEvents}
               onEventSelect={handleEventSelect}
               selectedEvent={selectedEvent}
-              onTriggerAnalysis={handleTriggerAnalysis}
+              onTriggerAnalysis={() => handleTriggerAnalysis("road")}
             />
           )}
 
@@ -1768,7 +2142,7 @@ function VideoWorkspace({
               jobResults={jobResults}
               onEventSelect={handleEventSelect}
               selectedEvent={selectedEvent}
-              onTriggerAnalysis={handleTriggerAnalysis}
+              onTriggerAnalysis={() => handleTriggerAnalysis("traffic")}
             />
           )}
 
@@ -1777,9 +2151,10 @@ function VideoWorkspace({
               video={video}
               events={allEvents}
               safetyRun={safetyRun}
+              safetyStatus={statusData?.engine_statuses?.["safety"] || { status: video.status === "COMPLETED" ? "unavailable" : "queued" }}
               onEventSelect={handleEventSelect}
               selectedEvent={selectedEvent}
-              onTriggerAnalysis={handleTriggerAnalysis}
+              onTriggerAnalysis={() => handleTriggerAnalysis("safety")}
             />
           )}
 
@@ -1789,7 +2164,15 @@ function VideoWorkspace({
               events={allEvents}
               onEventSelect={handleEventSelect}
               selectedEvent={selectedEvent}
-              onTriggerAnalysis={handleTriggerAnalysis}
+              onTriggerAnalysis={() => handleTriggerAnalysis("incident")}
+            />
+          )}
+
+          {activeModule === "evidence" && (
+            <EvidenceTab
+              events={allEvents}
+              onEventSelect={handleEventSelect}
+              statusData={statusData}
             />
           )}
         </div>

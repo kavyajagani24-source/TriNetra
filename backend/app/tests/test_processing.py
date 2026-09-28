@@ -118,10 +118,28 @@ class TestVideoProcessingStatus:
 
     def test_status_with_job(self, client, db_session):
         video = _insert_video(db_session)
-        client.post(f"/api/v1/videos/{video.id}/process")
+        client.post(f"/api/v1/videos/{video.id}/process", json={"mode": "multi_engine"})
 
         resp = client.get(f"/api/v1/videos/{video.id}/status")
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["job_status"] == "QUEUED"
         assert data["job_id"] is not None
+        assert data["mode"] == "multi_engine"
+        assert "road" in data["engine_statuses"]
+        assert data["engine_statuses"]["road"]["status"] == "queued"
+
+    def test_reprocess_with_force_flag(self, client, db_session):
+        video = _insert_video(db_session)
+        # First process call
+        resp1 = client.post(f"/api/v1/videos/{video.id}/process", json={"mode": "road"})
+        assert resp1.status_code == 201
+
+        # Second call with force_reprocess=True succeeds instead of 409
+        resp2 = client.post(
+            f"/api/v1/videos/{video.id}/process",
+            json={"mode": "multi_engine", "force_reprocess": True},
+        )
+        assert resp2.status_code == 201
+        data = resp2.json()["data"]
+        assert data["mode"] == "multi_engine"

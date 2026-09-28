@@ -16,7 +16,11 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query
 
 from app.api.dependencies import DatabaseDep
 from app.schemas.common import PaginatedResponse, SuccessResponse
-from app.schemas.processing import ProcessingJobCreateResponse, VideoProcessingStatus
+from app.schemas.processing import (
+    ProcessVideoRequest,
+    ProcessingJobCreateResponse,
+    VideoProcessingStatus,
+)
 from app.schemas.video import VideoListResponse, VideoResponse, VideoUploadResponse
 from app.services.ai_processing_service import AIProcessingService
 from app.services.exceptions import (
@@ -187,17 +191,24 @@ def delete_video(
     summary="Create Processing Job",
     description=(
         "Creates a processing job for the video and starts the AI computer vision "
-        "pipeline asynchronously in the background."
+        "pipeline asynchronously in the background. Supports mode selection and reprocess."
     ),
 )
 def create_processing_job(
     video_id: uuid.UUID,
     db: DatabaseDep,
     background_tasks: BackgroundTasks,
+    payload: Optional[ProcessVideoRequest] = None,
 ) -> SuccessResponse[ProcessingJobCreateResponse]:
     service = _proc_service(db)
+    mode = payload.mode if payload and payload.mode else "multi_engine"
+    force_reprocess = payload.force_reprocess if payload else False
     try:
-        job = service.create_processing_job(video_id)
+        job = service.create_processing_job(
+            video_id=video_id,
+            mode=mode,
+            force_reprocess=force_reprocess,
+        )
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message)
     except ProcessingConflictError as exc:
@@ -205,7 +216,7 @@ def create_processing_job(
 
     # Dispatch AI Computer Vision worker in background
     ai_service = AIProcessingService()
-    background_tasks.add_task(ai_service.run_processing_job, job.id)
+    background_tasks.add_task(ai_service.run_processing_job, job.id, mode=mode)
 
     return SuccessResponse(
         message="Processing job created and AI processing started successfully.",
@@ -213,6 +224,7 @@ def create_processing_job(
             job_id=job.id,
             video_id=job.video_id,
             status=job.status,
+            mode=job.mode,
             progress_percentage=job.progress_percentage,
         ),
     )

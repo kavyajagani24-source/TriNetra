@@ -38,16 +38,19 @@ def _resolve_sixth_sense_root() -> Path:
             "SIXTH_SENSE_ROOT=%s does not exist - falling back to auto-discovery.",
             settings.SIXTH_SENSE_ROOT,
         )
-    # Auto-discover: The-Sixth-Sense-AI is a sibling of urbaneye-ai
-    # This file is at: urbaneye-ai/backend/app/api/sixth_sense_router.py
-    # parents[0] = app/api, [1] = app, [2] = backend, [3] = urbaneye-ai, [4] = parent/
-    candidate = Path(__file__).resolve().parents[3].parent / "The-Sixth-Sense-AI"
-    if candidate.exists():
-        logger.info("Sixth Sense auto-discovered at: %s", candidate)
-        return candidate
+    # Auto-discover candidates:
+    candidates = [
+        Path(__file__).resolve().parents[3].parent / "sixth_sense",
+        Path(__file__).resolve().parents[3].parent / "The-Sixth-Sense-AI",
+        Path(__file__).resolve().parents[2].parent / "sixth_sense",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            logger.info("Sixth Sense auto-discovered at: %s", candidate)
+            return candidate
     raise RuntimeError(
         f"Cannot locate The-Sixth-Sense-AI repository. "
-        f"Set SIXTH_SENSE_ROOT in .env or place it at {candidate}"
+        f"Set SIXTH_SENSE_ROOT in .env or place it at {candidates[0]}"
     )
 
 

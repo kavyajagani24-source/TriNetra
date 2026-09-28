@@ -32,12 +32,16 @@ class EvidenceNormalizer:
         if video_path.startswith("http://") or video_path.startswith("https://") or video_path.startswith("/"):
             return video_path
 
+        clean_path = video_path.replace("\\", "/")
+        if clean_path.startswith("outputs/") or clean_path.startswith("storage/"):
+            return f"/{clean_path}"
+
         p = Path(video_path)
         # Check if inside Sixth Sense outputs
         try:
             ss_out = self.settings.sixth_sense_root_path / "outputs"
-            if p.is_relative_to(ss_out):
-                rel = p.relative_to(ss_out).as_posix()
+            if p.resolve().is_relative_to(ss_out):
+                rel = p.resolve().relative_to(ss_out).as_posix()
                 return f"/outputs/{rel}"
         except Exception:
             pass
@@ -51,7 +55,7 @@ class EvidenceNormalizer:
         except Exception:
             pass
 
-        return video_path
+        return clean_path
 
     def normalize_frame_url(self, frame_path: Optional[str]) -> Optional[str]:
         """Convert a local evidence frame path to a web URL."""
@@ -60,6 +64,10 @@ class EvidenceNormalizer:
 
         if frame_path.startswith("http://") or frame_path.startswith("https://") or frame_path.startswith("/"):
             return frame_path
+
+        clean_path = frame_path.replace("\\", "/")
+        if clean_path.startswith("outputs/") or clean_path.startswith("storage/"):
+            return f"/{clean_path}"
 
         p = Path(frame_path)
         try:
@@ -78,7 +86,7 @@ class EvidenceNormalizer:
         except Exception:
             pass
 
-        return frame_path
+        return clean_path
 
     def normalize_event_evidence(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Normalizes evidence references stored in an event's extra_metadata."""
@@ -101,5 +109,10 @@ class EvidenceNormalizer:
         # Evidence clip from safety AI
         if "evidence_clip" in updated and updated["evidence_clip"]:
             updated["evidence_clip"] = self.normalize_video_url(updated["evidence_clip"])
+
+        # Evidence frames from incident AI
+        for inc_key in ("evidence_frame", "evidence_before", "evidence_after"):
+            if inc_key in updated and updated[inc_key]:
+                updated[inc_key] = self.normalize_frame_url(updated[inc_key])
 
         return updated

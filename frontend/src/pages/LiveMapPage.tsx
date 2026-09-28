@@ -52,8 +52,8 @@ export function LiveMapPage() {
     return buses.filter((b) => b.route === filters.route);
   }, [buses, filters.route]);
 
-  const activeBusCount = buses.filter((b) => b.status !== "offline").length + 236;
-  const transmittingGpsCount = buses.filter((b) => b.gps === "connected").length + 223;
+  const activeBusCount = buses.filter((b) => b.status !== "offline").length;
+  const transmittingGpsCount = buses.filter((b) => b.gps === "connected" || b.gps === "active").length;
 
   return (
     <AppShell>

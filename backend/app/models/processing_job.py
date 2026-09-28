@@ -78,6 +78,12 @@ class ProcessingJob(TimestampMixin, Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Multi-engine execution provenance & annotated video artifacts
+    mode: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="multi_engine",
+        server_default="multi_engine",
+    )
     engine_statuses: Mapped[dict | None] = mapped_column(
         JSONB().with_variant(JSON(), "sqlite"),
         nullable=True,
@@ -86,6 +92,7 @@ class ProcessingJob(TimestampMixin, Base):
     annotated_road_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     annotated_traffic_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     annotated_safety_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    annotated_incident_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

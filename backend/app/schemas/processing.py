@@ -12,12 +12,20 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+class ProcessVideoRequest(BaseModel):
+    """Request payload to initiate AI processing."""
+
+    mode: Optional[str] = "multi_engine"  # "multi_engine" | "road" | "traffic" | "safety" | "incident"
+    force_reprocess: Optional[bool] = False
+
+
 class ProcessingJobResponse(BaseModel):
     """Full processing job record."""
 
     id: uuid.UUID
     video_id: uuid.UUID
     status: str
+    mode: Optional[str] = "multi_engine"
     progress_percentage: float
     frames_processed: int
     total_frames: Optional[int] = None
@@ -27,6 +35,7 @@ class ProcessingJobResponse(BaseModel):
     annotated_road_path: Optional[str] = None
     annotated_traffic_path: Optional[str] = None
     annotated_safety_path: Optional[str] = None
+    annotated_incident_path: Optional[str] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     created_at: datetime
@@ -40,6 +49,7 @@ class ProcessingJobCreateResponse(BaseModel):
     job_id: uuid.UUID
     video_id: uuid.UUID
     status: str
+    mode: Optional[str] = "multi_engine"
     progress_percentage: float
 
     model_config = {"from_attributes": True}
@@ -52,6 +62,7 @@ class VideoProcessingStatus(BaseModel):
     video_status: str
     job_id: Optional[uuid.UUID] = None
     job_status: Optional[str] = None
+    mode: Optional[str] = "multi_engine"
     progress_percentage: Optional[float] = None
     frames_processed: Optional[int] = 0
     total_frames: Optional[int] = 0
@@ -61,3 +72,4 @@ class VideoProcessingStatus(BaseModel):
     annotated_road_path: Optional[str] = None
     annotated_traffic_path: Optional[str] = None
     annotated_safety_path: Optional[str] = None
+    annotated_incident_path: Optional[str] = None

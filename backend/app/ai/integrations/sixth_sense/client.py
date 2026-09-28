@@ -46,16 +46,23 @@ def _resolve_sixth_sense_root() -> Path:
     except Exception:
         pass
 
-    # Auto-discover: this file is at
-    # urbaneye-ai/backend/app/ai/integrations/sixth_sense/client.py
-    # parents[0]=sixth_sense, [1]=integrations, [2]=ai, [3]=app, [4]=backend, [5]=urbaneye-ai, [6]=sih
-    candidate = Path(__file__).resolve().parents[5] / "The-Sixth-Sense-AI"
-    if candidate.exists():
-        return candidate
+    # Auto-discover candidates:
+    file_path = Path(__file__).resolve()
+    candidates = [
+        file_path.parents[5] / "sixth_sense",
+        file_path.parents[5] / "The-Sixth-Sense-AI",
+        file_path.parents[4].parent / "sixth_sense",
+        file_path.parents[3].parent / "sixth_sense",
+        Path(r"C:\Users\dhruv\.gemini\antigravity\scratch\sixth_sense"),
+    ]
+    for cand in candidates:
+        if cand.exists():
+            logger.info("SixthSenseClient auto-discovered root at: %s", cand)
+            return cand
 
     raise RuntimeError(
-        f"Cannot locate The-Sixth-Sense-AI repository. "
-        f"Set SIXTH_SENSE_ROOT in .env or place it at {candidate}"
+        f"Cannot locate The-Sixth-Sense-AI / sixth_sense repository. "
+        f"Set SIXTH_SENSE_ROOT in .env or place it at {candidates[0]}"
     )
 
 

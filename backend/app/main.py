@@ -62,7 +62,9 @@ async def lifespan(app: FastAPI):
         from app.models.base import Base
         import app.models  # noqa: F401
         from app.core.database import engine
+        from app.scripts.migrate_db import sync_schema
         Base.metadata.create_all(bind=engine)
+        sync_schema()
         logger.info("Database schema verified / initialized.")
     else:
         logger.warning(
@@ -142,15 +144,19 @@ def create_application() -> FastAPI:
     if os.path.exists(settings.STORAGE_PATH):
         app.mount("/storage", StaticFiles(directory=settings.STORAGE_PATH), name="storage")
 
-    # ── Sixth Sense Outputs (Annotated Videos & API Runs) ──────────────────────
+    # ── Outputs Directory (Incident AI Annotated Videos & Evidence) ───────────
     try:
+        from pathlib import Path
+        backend_outputs = Path(__file__).resolve().parents[1] / "outputs"
         from app.api.sixth_sense_router import SIXTH_SENSE_ROOT
         sixth_sense_outputs = SIXTH_SENSE_ROOT / "outputs"
-        if sixth_sense_outputs.exists():
-            app.mount("/outputs", StaticFiles(directory=str(sixth_sense_outputs)), name="outputs")
-            logger.info("Mounted /outputs from Sixth Sense directory: %s", sixth_sense_outputs)
+
+        chosen_outputs = backend_outputs if backend_outputs.exists() else sixth_sense_outputs
+        if chosen_outputs.exists():
+            app.mount("/outputs", StaticFiles(directory=str(chosen_outputs)), name="outputs")
+            logger.info("Mounted /outputs from directory: %s", chosen_outputs)
     except Exception as exc:
-        logger.warning("Could not mount Sixth Sense /outputs directory: %s", exc)
+        logger.warning("Could not mount /outputs directory: %s", exc)
 
     # ── Exception Handlers ────────────────────────────────────────────────────
     _register_exception_handlers(app)

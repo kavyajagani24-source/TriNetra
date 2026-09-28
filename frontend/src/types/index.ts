@@ -85,12 +85,12 @@ export interface Issue {
   status: IssueStatus;
   confidence: number;
   road: string;
-  ward: string;
-  segmentId: string;
-  position: LatLng;
-  heading: string;
-  gpsUncertaintyM: number;
-  model: string;
+  ward?: string;
+  segmentId?: string;
+  position?: LatLng | null;
+  heading?: string;
+  gpsUncertaintyM?: number;
+  model?: string;
   firstObserved: string;
   lastObserved: string;
   lastObservedLabel: string;
@@ -99,14 +99,15 @@ export interface Issue {
   department: Department;
   assignedTo?: string;
   slaHoursRemaining: number;
-  persistent: boolean;
-  reviewRequired: boolean;
+  persistent?: boolean;
+  reviewRequired?: boolean;
   contractorId?: string;
-  evidence: {
-    before: EvidenceFrame;
-    current: EvidenceFrame;
+  evidence?: {
+    before?: EvidenceFrame;
+    current?: EvidenceFrame;
     verification?: EvidenceFrame;
   };
+  evidenceUrl?: string;
   verification?: {
     confidence: number;
     passes: number;
@@ -117,20 +118,25 @@ export interface Issue {
 
 export interface Bus {
   id: string;
+  plate?: string;
   route: string;
-  operator: string;
+  operator?: string;
+  driver?: string;
+  depot?: string;
   status: "active" | "idle" | "offline";
-  gps: "connected" | "degraded" | "lost";
+  gps: "connected" | "degraded" | "lost" | "active";
   camerasOnline: number;
-  camerasTotal: number;
-  lastEventLabel: string;
-  bandwidth: "normal" | "reduced" | "low";
+  camerasTotal?: number;
+  lastEventLabel?: string;
+  bandwidth: "normal" | "reduced" | "low" | "high";
   speedKph: number;
-  headingDeg: number;
-  position: LatLng;
-  accuracyM: number;
+  headingDeg?: number;
+  position?: LatLng | null;
+  accuracyM?: number;
   lastPacket: string;
-  recentObservations: { type: string; at: string; confidence: number }[];
+  todayDistanceKm?: number;
+  potholesFoundToday?: number;
+  recentObservations?: { type: string; at: string; confidence: number }[];
 }
 
 export type RoadCondition = 0 | 1 | 2 | 3 | 4;
@@ -167,14 +173,14 @@ export interface IncidentCandidate {
   confidence: number;
   at: string;
   location: string;
-  position: LatLng;
+  position?: LatLng | null;
   vehicleType: string;
   trackId: string;
   plateCandidate: string;
   plateConfidence: number;
   supportingFrames: number;
   status: "human_review" | "proposal_approved" | "rejected" | "flagged";
-  evidence: EvidenceFrame;
+  evidence?: Partial<EvidenceFrame> & { src?: string; timestamp?: string; frameNumber?: number; labels?: string[] };
 }
 
 export interface AppNotification {

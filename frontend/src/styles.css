@@ -34,16 +34,16 @@
   --color-brand-light:     #EAF7F0;
 
   /* ── Surfaces ── */
-  --color-surface-bg:      #F7FAF8;
-  --color-surface-card:    #FFFFFF;
-  --color-surface-muted:   #F0F7F3;
-  --color-surface-warm:    #F7FAF8;
-  --color-border-subtle:   #DCE9E1;
+  --color-surface-bg:      var(--background);
+  --color-surface-card:    var(--card);
+  --color-surface-muted:   var(--muted);
+  --color-surface-warm:    var(--secondary);
+  --color-border-subtle:   var(--border);
 
   /* ── Text ── */
-  --color-text-main:       #26352E;
-  --color-text-secondary:  #64736B;
-  --color-text-muted:      #91A099;
+  --color-text-main:       var(--foreground);
+  --color-text-secondary:  var(--muted-foreground);
+  --color-text-muted:      var(--muted-foreground);
 
   /* ── Standard Tailwind Aliases ── */
   --color-background:       var(--background);
@@ -78,16 +78,16 @@
   --color-info:            var(--info);
   --color-info-soft:       var(--info-soft);
 
-  /* ── Map Tokens (keep dark map, light UI overlays) ── */
+  /* ── Map Tokens ── */
   --color-map-base:        #0f172a;
-  --color-map-panel:       #ffffff;
-  --color-map-border:      #DCE9E1;
+  --color-map-panel:       var(--card);
+  --color-map-border:      var(--border);
 
   /* ── Elevation ── */
-  --shadow-subtle:  0 1px 2px 0 rgba(38, 53, 46, 0.04);
-  --shadow-panel:   0 1px 3px 0 rgba(38, 53, 46, 0.06), 0 1px 2px -1px rgba(38, 53, 46, 0.04);
-  --shadow-float:   0 4px 14px 0 rgba(38, 53, 46, 0.08);
-  --shadow-drawer:  0 8px 24px 0 rgba(38, 53, 46, 0.11);
+  --shadow-subtle:  0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-panel:   0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  --shadow-float:   0 4px 14px 0 rgba(0, 0, 0, 0.15);
+  --shadow-drawer:  0 8px 24px 0 rgba(0, 0, 0, 0.25);
 }
 
 :root {
@@ -144,6 +144,58 @@
   --chart-3: #E1BE63;
   --chart-4: #E27676;
   --chart-5: #9BD8B8;
+}
+
+.dark {
+  /* ── Core Dark Surfaces & High-Contrast Dark Text ── */
+  --background:          #0B120F;
+  --foreground:          #E3ECE7;
+  --card:                #121C17;
+  --card-foreground:     #E3ECE7;
+  --popover:             #121C17;
+  --popover-foreground:  #E3ECE7;
+
+  /* ── Brand Primary ── */
+  --primary:             #4BAF7C;
+  --primary-foreground:  #FFFFFF;
+
+  /* ── Secondary / Muted ── */
+  --secondary:           #17251F;
+  --secondary-foreground: #B8CDC2;
+  --muted:               #17251F;
+  --muted-foreground:    #829A8E;
+
+  /* ── Accent ── */
+  --accent:              #1C3028;
+  --accent-foreground:   #E3ECE7;
+
+  /* ── Destructive ── */
+  --destructive:         #EF4444;
+  --destructive-foreground: #FFFFFF;
+
+  /* ── Borders / Inputs ── */
+  --border:              #20352B;
+  --input:               #20352B;
+  --ring:                #4BAF7C;
+
+  /* ── Status Semantic ── */
+  --ok:                  #34D399;
+  --ok-soft:             #064E3B;
+  --warn:                #FBBF24;
+  --warn-soft:           #451A03;
+  --poor:                #FB923C;
+  --poor-soft:           #431407;
+  --critical:            #F87171;
+  --critical-soft:       #450A0A;
+  --info:                #60A5FA;
+  --info-soft:           #172554;
+
+  /* ── Chart Palette ── */
+  --chart-1: #4BAF7C;
+  --chart-2: #60A5FA;
+  --chart-3: #FBBF24;
+  --chart-4: #F87171;
+  --chart-5: #34D399;
 }
 
 @layer base {

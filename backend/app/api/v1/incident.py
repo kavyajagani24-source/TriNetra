@@ -35,10 +35,10 @@ router = APIRouter(prefix="/api/v1/incident", tags=["Incident & ANPR AI (Person 
 
 # ── Output directories ────────────────────────────────────────────────────── #
 # Stored relative to this repo's backend/ directory so that outputs persist
-# alongside the rest of TriNetra's storage.
+# alongside the rest of TriNetra's storage and match IncidentPipeline output paths.
 _BACKEND_ROOT: Path = Path(__file__).resolve().parents[3]  # …/backend
-_RUNS_BASE: Path = _BACKEND_ROOT / "storage" / "incident" / "runs"
-_UPLOAD_DIR: Path = _BACKEND_ROOT / "storage" / "incident" / "_uploads"
+_RUNS_BASE: Path = _BACKEND_ROOT / "outputs" / "api_runs" / "incident"
+_UPLOAD_DIR: Path = _BACKEND_ROOT / "outputs" / "_uploads"
 _RUNS_BASE.mkdir(parents=True, exist_ok=True)
 _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -107,7 +107,6 @@ async def analyze_incident(
             run_id=run_id,
             gps_coordinates=gps_coords,
             render_video=render_video,
-            output_base=str(_RUNS_BASE),
         )
         return response
     except Exception as exc:

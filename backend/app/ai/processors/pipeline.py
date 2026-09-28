@@ -3,8 +3,8 @@ TriNetra — Orchestrated Urban AI Processing Pipeline
 
 Authoritative orchestrator coordinating the three AI systems:
   1. The-Sixth-Sense-AI (Road Infrastructure: D00/D10/D20/D40/Repair)
-  2. The-Sixth-Sense-AI (Traffic: Vehicles, Tracking, Congestion)
-  3. SIH2026 Module 3   (Safety: Pedestrian/VRU Safety, ByteTrack, Risk Engine)
+  2. The-Sixth-Sense-AI (Traffic: Vehicles, UrbianTracker, Congestion)
+  3. SIH2026 Module 3   (Safety: Pedestrian/VRU Safety, Risk Engine)
 
 GPU Memory Management:
   Engines are invoked sequentially (Road -> Traffic -> Safety) so that each
@@ -80,8 +80,9 @@ class UrbanAIPipeline:
         video_lon: Optional[float] = None,
         output_dir: Optional[str] = None,
         evidence_dir: Optional[str] = None,
-        status_callback: Optional[Callable[[ProcessingStatus, float], None]] = None,
+        status_callback: Optional[Callable[..., None]] = None,
         progress_callback: Optional[Callable[[int, int, float, int], None]] = None,
+        mode: str = "multi_engine",
     ) -> PipelineResult:
         """
         Execute multi-engine pipeline on the target video.
@@ -89,12 +90,25 @@ class UrbanAIPipeline:
         Stages:
           1. ROAD_ANALYSIS: Sixth Sense Road AI (RDD2022 checkpoint)
           2. TRAFFIC_ANALYSIS: Sixth Sense Traffic AI (YOLO11x checkpoint)
-          3. SAFETY_ANALYSIS: Module 3 Safety AI (models/best.pt + ByteTrack)
-          4. NORMALIZING & PERSISTING: Deduplication, evidence normalization
+          3. SAFETY_ANALYSIS: Module 3 Safety AI (models/best.pt + VRU tracking)
+          4. INCIDENT_ANALYSIS: Person 4 Incident + ANPR AI
+          5. NORMALIZING & PERSISTING: Deduplication, evidence normalization
         """
         video_path_obj = Path(video_path).resolve()
         if not video_path_obj.exists():
             raise FileNotFoundError(f"Video file not found: {video_path_obj}")
+
+        def emit_status(
+            new_status: ProcessingStatus,
+            pct: float,
+            module_update: Optional[Dict[str, Any]] = None,
+        ) -> None:
+            if not status_callback:
+                return
+            try:
+                status_callback(new_status, pct, module_update)
+            except TypeError:
+                status_callback(new_status, pct)
 
         # Extract lightweight video headers (no frame loop)
         cap = cv2.VideoCapture(str(video_path_obj))
@@ -117,17 +131,24 @@ class UrbanAIPipeline:
             "road": None,
             "traffic": None,
             "safety": None,
+            "incident": None,
         }
+
+        # Determine which engines to execute based on mode
+        run_road = (mode in ("multi_engine", "road")) and self.settings.ROAD_AI_ENABLED
+        run_traffic = (mode in ("multi_engine", "traffic")) and self.settings.TRAFFIC_AI_ENABLED
+        run_safety = (mode in ("multi_engine", "safety")) and self.settings.SAFETY_AI_ENABLED
+        run_incident = (mode in ("multi_engine", "incident")) and getattr(self.settings, "INCIDENT_AI_ENABLED", True)
 
         # ── Stage 1: Road AI (The-Sixth-Sense-AI) ──────────────────────────────
         road_result: Optional[SixthSenseRunResult] = None
         road_events: List[UrbanEventData] = []
         road_detections: List[Dict[str, Any]] = []
 
-        if self.settings.ROAD_AI_ENABLED:
+        if run_road:
             logger.info("[%s] Starting Stage 1: Road Infrastructure AI", job_id)
-            if status_callback:
-                status_callback(ProcessingStatus.ROAD_ANALYSIS, 15.0)
+            engine_statuses["road"] = {"status": "running"}
+            emit_status(ProcessingStatus.ROAD_ANALYSIS, 15.0, {"road": engine_statuses["road"]})
 
             t0 = time.monotonic()
             try:
@@ -162,8 +183,13 @@ class UrbanAIPipeline:
             except Exception as e:
                 logger.exception("[%s] Road AI failed: %s", job_id, e)
                 engine_statuses["road"] = {"status": "failed", "error": str(e)}
+            emit_status(ProcessingStatus.ROAD_ANALYSIS, 35.0, {"road": engine_statuses["road"]})
         else:
-            engine_statuses["road"] = {"status": "skipped", "reason": "disabled_by_config"}
+            engine_statuses["road"] = {
+                "status": "skipped",
+                "reason": "disabled_by_config" if not self.settings.ROAD_AI_ENABLED else f"not_selected_in_{mode}",
+            }
+            emit_status(ProcessingStatus.PROCESSING, 25.0, {"road": engine_statuses["road"]})
 
         # ── Stage 2: Traffic AI (The-Sixth-Sense-AI) ───────────────────────────
         traffic_result: Optional[SixthSenseRunResult] = None
@@ -174,10 +200,10 @@ class UrbanAIPipeline:
         peak_density = DensityLevel.LOW
         avg_congestion = CongestionLevel.LOW
 
-        if self.settings.TRAFFIC_AI_ENABLED:
+        if run_traffic:
             logger.info("[%s] Starting Stage 2: Traffic AI", job_id)
-            if status_callback:
-                status_callback(ProcessingStatus.TRAFFIC_ANALYSIS, 45.0)
+            engine_statuses["traffic"] = {"status": "running"}
+            emit_status(ProcessingStatus.TRAFFIC_ANALYSIS, 45.0, {"traffic": engine_statuses["traffic"]})
 
             t0 = time.monotonic()
             try:
@@ -231,71 +257,194 @@ class UrbanAIPipeline:
             except Exception as e:
                 logger.exception("[%s] Traffic AI failed: %s", job_id, e)
                 engine_statuses["traffic"] = {"status": "failed", "error": str(e)}
+            emit_status(ProcessingStatus.TRAFFIC_ANALYSIS, 65.0, {"traffic": engine_statuses["traffic"]})
         else:
-            engine_statuses["traffic"] = {"status": "skipped", "reason": "disabled_by_config"}
+            engine_statuses["traffic"] = {
+                "status": "skipped",
+                "reason": "disabled_by_config" if not self.settings.TRAFFIC_AI_ENABLED else f"not_selected_in_{mode}",
+            }
+            emit_status(ProcessingStatus.PROCESSING, 50.0, {"traffic": engine_statuses["traffic"]})
 
         # ── Stage 3: Safety AI (SIH2026 Module 3) ──────────────────────────────
         raw_safety_events: List[Any] = []
         safety_urban_events: List[UrbanEventData] = []
         safety_detections: List[Dict[str, Any]] = []
 
-        if self.settings.SAFETY_AI_ENABLED:
-            logger.info("[%s] Starting Stage 3: Module 3 Safety AI", job_id)
-            if status_callback:
-                status_callback(ProcessingStatus.SAFETY_ANALYSIS, 75.0)
+        if run_safety:
+            if not self.safety_runner.is_available():
+                logger.warning("[%s] Safety AI skipped: SIH2026--Module3 repository not found on host", job_id)
+                engine_statuses["safety"] = {
+                    "status": "unavailable",
+                    "reason": "SIH2026--Module3 repository not installed on host",
+                }
+                emit_status(ProcessingStatus.PROCESSING, 75.0, {"safety": engine_statuses["safety"]})
+            else:
+                logger.info("[%s] Starting Stage 3: Module 3 Safety AI", job_id)
+                engine_statuses["safety"] = {"status": "running"}
+                emit_status(ProcessingStatus.SAFETY_ANALYSIS, 70.0, {"safety": engine_statuses["safety"]})
+
+                t0 = time.monotonic()
+                try:
+                    safety_out_dir = out_dir / "safety"
+                    safety_out_dir.mkdir(parents=True, exist_ok=True)
+
+                    raw_safety_events = self.safety_runner.analyze(
+                        video_path=video_path_obj,
+                        output_dir=safety_out_dir,
+                        camera_profile=camera_profile,
+                        bus_id=bus_id,
+                        camera_id=camera_id,
+                        save_video=True,
+                    )
+                    t_safety = time.monotonic() - t0
+
+                    annotated_safety_file = safety_out_dir / f"{video_path_obj.stem}_annotated.mp4"
+                    annotated_safety_str = (
+                        str(annotated_safety_file) if annotated_safety_file.exists() else None
+                    )
+                    annotated_paths["safety"] = self.evidence_normalizer.normalize_video_url(
+                        annotated_safety_str
+                    )
+
+                    engine_statuses["safety"] = {
+                        "status": "completed",
+                        "runtime_sec": round(t_safety, 2),
+                        "events_count": len(raw_safety_events),
+                        "annotated_video": annotated_safety_str,
+                    }
+                    safety_urban_events = self.safety_adapter.to_urban_events(
+                        events=raw_safety_events,
+                        video_id=video_id,
+                        job_id=job_id,
+                        video_lat=video_lat,
+                        video_lon=video_lon,
+                    )
+                    safety_detections = self.detection_normalizer.from_safety_events(
+                        safety_events=raw_safety_events,
+                        video_id=video_id,
+                        job_id=job_id,
+                    )
+                except Exception as e:
+                    logger.exception("[%s] Safety AI failed: %s", job_id, e)
+                    engine_statuses["safety"] = {"status": "failed", "error": str(e)}
+                emit_status(ProcessingStatus.SAFETY_ANALYSIS, 80.0, {"safety": engine_statuses["safety"]})
+        else:
+            engine_statuses["safety"] = {
+                "status": "skipped",
+                "reason": "disabled_by_config" if not self.settings.SAFETY_AI_ENABLED else f"not_selected_in_{mode}",
+            }
+            emit_status(ProcessingStatus.PROCESSING, 75.0, {"safety": engine_statuses["safety"]})
+
+        # ── Stage 4: Incident & ANPR AI (Person 4) ───────────────────────────
+        incident_urban_events: List[UrbanEventData] = []
+        if run_incident:
+            logger.info("[%s] Starting Stage 4: Incident & ANPR AI", job_id)
+            engine_statuses["incident"] = {"status": "running"}
+            emit_status(ProcessingStatus.INCIDENT_ANALYSIS, 82.0, {"incident": engine_statuses["incident"]})
 
             t0 = time.monotonic()
             try:
-                safety_out_dir = out_dir / "safety"
-                safety_out_dir.mkdir(parents=True, exist_ok=True)
-
-                raw_safety_events = self.safety_runner.analyze(
-                    video_path=video_path_obj,
-                    output_dir=safety_out_dir,
-                    camera_profile=camera_profile,
-                    bus_id=bus_id,
-                    camera_id=camera_id,
-                    save_video=True,
+                from app.ai.incident.inference import IncidentPipeline
+                inc_pipeline = IncidentPipeline()
+                inc_report = inc_pipeline.analyze_video(
+                    video_path=str(video_path_obj),
+                    run_id=f"{job_id}_incident",
+                    gps_coordinates={"latitude": video_lat, "longitude": video_lon} if video_lat and video_lon else None,
+                    render_video=True,
                 )
-                t_safety = time.monotonic() - t0
-
-                annotated_safety_file = safety_out_dir / f"{video_path_obj.stem}_annotated.mp4"
-                annotated_safety_str = (
-                    str(annotated_safety_file) if annotated_safety_file.exists() else None
-                )
-                annotated_paths["safety"] = self.evidence_normalizer.normalize_video_url(
-                    annotated_safety_str
-                )
-
-                engine_statuses["safety"] = {
+                t_inc = time.monotonic() - t0
+                engine_statuses["incident"] = {
                     "status": "completed",
-                    "runtime_sec": round(t_safety, 2),
-                    "events_count": len(raw_safety_events),
-                    "annotated_video": annotated_safety_str,
+                    "runtime_sec": round(t_inc, 2),
+                    "collision_detected": inc_report.collision.detected,
+                    "hit_and_run_candidate": inc_report.hit_and_run.is_hit_and_run_candidate,
+                    "rash_driving_count": len(inc_report.abnormal_driving),
+                    "annotated_video": inc_report.evidence.annotated_video_url,
                 }
-                safety_urban_events = self.safety_adapter.to_urban_events(
-                    events=raw_safety_events,
-                    video_id=video_id,
-                    job_id=job_id,
-                    video_lat=video_lat,
-                    video_lon=video_lon,
+                annotated_paths["incident"] = self.evidence_normalizer.normalize_video_url(
+                    inc_report.evidence.annotated_video_url
                 )
-                safety_detections = self.detection_normalizer.from_safety_events(
-                    safety_events=raw_safety_events,
-                    video_id=video_id,
-                    job_id=job_id,
-                )
+
+                # Convert incident detections to UrbanEventData
+                from app.ai.models.event_types import EventSeverity, EventType
+                if inc_report.collision.detected or inc_report.collision.near_collision_flagged:
+                    incident_urban_events.append(
+                        UrbanEventData(
+                            event_type=EventType.ACCIDENT if inc_report.collision.detected else EventType.NEAR_MISS,
+                            severity=EventSeverity.CRITICAL if inc_report.collision.detected else EventSeverity.HIGH,
+                            confidence=inc_report.collision.confidence,
+                            frame_number=inc_report.collision.peak_frame_idx or 0,
+                            timestamp=inc_report.collision.peak_timestamp_sec or 0.0,
+                            latitude=video_lat,
+                            longitude=video_lon,
+                            description=(
+                                f"Collision candidate detected (Score: {int(inc_report.collision.confidence*100)}%). "
+                                f"Involved tracks: {inc_report.collision.involved_track_ids}."
+                            ),
+                            extra_metadata={
+                                "fusion_score": inc_report.collision.fused_incident_score,
+                                "operational_tier": inc_report.collision.operational_tier,
+                                "evidence_frame": inc_report.evidence.during_image_url,
+                                "evidence_before": inc_report.evidence.before_image_url,
+                                "evidence_after": inc_report.evidence.after_image_url,
+                            },
+                        )
+                    )
+
+                for rd in inc_report.abnormal_driving:
+                    incident_urban_events.append(
+                        UrbanEventData(
+                            event_type=EventType.RASH_DRIVING,
+                            severity=EventSeverity.HIGH,
+                            confidence=rd.confidence,
+                            frame_number=0,
+                            timestamp=rd.timestamp or 0.0,
+                            latitude=video_lat,
+                            longitude=video_lon,
+                            description=f"Rash driving candidate: Track #{rd.track_id} ({rd.class_name}). {rd.verdict_explanation or ''}",
+                            extra_metadata={
+                                "track_id": rd.track_id,
+                                "anomalies": rd.anomalies,
+                                "max_speed_px_s": rd.max_speed_px_s,
+                                "max_accel_px_s2": rd.max_accel_px_s2,
+                            },
+                        )
+                    )
+
+                if inc_report.hit_and_run.is_hit_and_run_candidate:
+                    incident_urban_events.append(
+                        UrbanEventData(
+                            event_type=EventType.ACCIDENT,
+                            severity=EventSeverity.CRITICAL,
+                            confidence=inc_report.hit_and_run.confidence,
+                            frame_number=0,
+                            timestamp=inc_report.collision.peak_timestamp_sec or 0.0,
+                            latitude=video_lat,
+                            longitude=video_lon,
+                            description=f"Hit-and-Run assessment: {inc_report.hit_and_run.reason}",
+                            extra_metadata={
+                                "offending_track_id": inc_report.hit_and_run.offending_track_id,
+                                "offending_plate": inc_report.hit_and_run.offending_plate.model_dump() if inc_report.hit_and_run.offending_plate else None,
+                                "departure_speed_px_s": inc_report.hit_and_run.departure_speed_px_s,
+                            },
+                        )
+                    )
             except Exception as e:
-                logger.exception("[%s] Safety AI failed: %s", job_id, e)
-                engine_statuses["safety"] = {"status": "failed", "error": str(e)}
+                logger.exception("[%s] Incident AI failed: %s", job_id, e)
+                engine_statuses["incident"] = {"status": "failed", "error": str(e)}
+            emit_status(ProcessingStatus.INCIDENT_ANALYSIS, 90.0, {"incident": engine_statuses["incident"]})
         else:
-            engine_statuses["safety"] = {"status": "skipped", "reason": "disabled_by_config"}
+            engine_statuses["incident"] = {
+                "status": "skipped",
+                "reason": "disabled_by_config" if not getattr(self.settings, "INCIDENT_AI_ENABLED", True) else f"not_selected_in_{mode}",
+            }
+            emit_status(ProcessingStatus.PROCESSING, 88.0, {"incident": engine_statuses["incident"]})
 
-        # ── Stage 4: Normalizing & Evidence Integration ───────────────────────
+        # ── Stage 5: Normalizing & Evidence Integration ───────────────────────
         if status_callback:
-            status_callback(ProcessingStatus.NORMALIZING, 90.0)
+            status_callback(ProcessingStatus.NORMALIZING, 92.0)
 
-        all_raw_events = road_events + safety_urban_events
+        all_raw_events = road_events + safety_urban_events + incident_urban_events
         deduped_events = self.event_normalizer.deduplicate(all_raw_events)
 
         # Normalize evidence paths in extra_metadata
@@ -323,9 +472,12 @@ class UrbanAIPipeline:
                 except Exception:
                     pass
 
-        # Primary annotated video: road if available, else safety, else traffic
+        # Primary annotated video: incident if available, else road, else safety, else traffic
         primary_annotated_video = (
-            annotated_paths["road"] or annotated_paths["safety"] or annotated_paths["traffic"]
+            annotated_paths.get("incident")
+            or annotated_paths.get("road")
+            or annotated_paths.get("safety")
+            or annotated_paths.get("traffic")
         )
 
         if progress_callback:
